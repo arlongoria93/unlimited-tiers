@@ -4,12 +4,12 @@ class DungeonScene extends Phaser.Scene {
     this.tier = data.tier || 1;
     this.forge = !!data.forge;
     this.world = !!data.world;
-    this.roomIndex = data.room || 0;
   }
   create() {
     bootTextures(this);
     const T = TIERS[this.tier];
     this.roomsTotal = this.world ? 1 : this.forge ? 3 : T.rooms;
+    this.roomIndex = 0;
     this.checkpoint = 0;
     this.enrageAt = 0;
     const s = compute();
@@ -30,14 +30,12 @@ class DungeonScene extends Phaser.Scene {
     this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.92);
-    this.heroScale = Math.max(0.04, (this.scale.height * 0.13) / this.player.height);
-    this.player.setScale(this.heroScale);
-    this.player.play(this.heroSet().idle);
-    this.gearGlow = this.add.circle(0, 0, 22, 0xffcc88, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
+    this.player = this.physics.add.sprite(0, 0, "hero", 0).setDepth(6).setOrigin(0.5, 0.88).setScale(0.34);
+    this.heroScale = 0.34;
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
-    this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
-    this.player.body.setOffset(this.player.width * 0.3, this.player.height * 0.76);
+    this.player.play("hero-idle");
+    this.player.body.setSize(70, 40);
+    this.player.body.setOffset(61, 175);
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.walls);
     this.sparks = this.add.particles(0, 0, "spark", {
@@ -45,21 +43,11 @@ class DungeonScene extends Phaser.Scene {
       emitting: false, quantity: 6, blendMode: "ADD",
     }).setDepth(8);
     this.strikeUntil = 0;
-    for (let i = 0; i < 8; i++) this.spawnEmber();
-    ambient("pit");
-    this.input.once("pointerdown", () => ambient("pit"));
-    this.events.on("shutdown", () => ambient(null));
-    this.time.addEvent({
-      delay: 3600, loop: true,
-      callback: () => sfx(Math.random() < 0.45 ? "crackle" : "drip"),
-    });
+    for (let i = 0; i < 16; i++) this.spawnEmber();
     this.vignette = this.add.graphics().setScrollFactor(0).setDepth(15);
 
     this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT");
-    this.input.on("pointerdown", (p) => {
-      if (p.y > this.scale.height - 140) return;
-      this.stick.down = true; this.stick.sx = p.x; this.stick.sy = p.y;
-    });
+    this.input.on("pointerdown", (p) => { this.stick.down = true; this.stick.sx = p.x; this.stick.sy = p.y; });
     this.input.on("pointerup", () => { this.stick.down = false; this.stick.ax = 0; this.stick.ay = 0; });
     this.input.on("pointermove", (p) => {
       if (!this.stick.down) return;
@@ -82,41 +70,22 @@ class DungeonScene extends Phaser.Scene {
     this.bossFill = this.add.rectangle(0, 0, 10, 8, 0x8c1c16).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22).setVisible(false);
     this.bossFrame = this.add.rectangle(0, 0, 10, 14).setStrokeStyle(1, 0xd4b56a, 0.8).setScrollFactor(0).setDepth(23).setVisible(false);
     this.bossName = this.add.text(0, 0, "", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(24).setVisible(false);
-    this.mallBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
+    this.mallBtn = this.add.rectangle(0, 0, 72, 28, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
     this.mallLabel = this.add.text(0, 0, "HALL", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
     this.mallBtn.on("pointerup", () => this.scene.start("mall"));
-    this.gearBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
-    this.gearLabel = this.add.text(0, 0, "GEAR", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
-    this.gearBtn.on("pointerup", () => this.scene.start("gear", { back: "dungeon", tier: this.tier, room: this.roomIndex }));
-    this.autoBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
-    this.autoLabel = this.add.text(0, 0, "AUTO", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
-    this.autoBtn.on("pointerup", () => {
-      profile.auto = !profile.auto;
-      persist();
-      this.paintAuto();
-    });
-    this.paintAuto();
     this.mpBg = this.add.rectangle(0, 0, 10, 6, 0x0c1824).setScrollFactor(0).setDepth(21);
     this.mpFg = this.add.rectangle(0, 0, 10, 6, 0x3ec6e0).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22);
     this.skillSlots = [0, 1, 2, 3].map((i) => {
       const slot = this.add.rectangle(0, 0, 34, 34, i === 0 ? 0x3a2412 : 0x121018)
-        .setStrokeStyle(2, i === 0 ? 0xf0d080 : 0x6a5a40, i === 0 ? 1 : 0.85)
-        .setScrollFactor(0).setDepth(24).setInteractive();
-      const label = this.add.text(0, 0, "ATK", {
-        fontFamily: TITLE, fontSize: "9px", color: i === 0 ? "#f0d080" : "#f6e7b2",
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
+        .setStrokeStyle(2, i === 0 ? 0xf0d080 : 0x6a5a40, i === 0 ? 1 : 0.4)
+        .setScrollFactor(0).setDepth(24);
+      const label = this.add.text(0, 0, ["ATK", "Q", "E", "R"][i], {
+        fontFamily: TITLE, fontSize: "11px", color: i === 0 ? "#f0d080" : "#6a6458",
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
       const shade = this.add.rectangle(0, 0, 30, 0, 0x07060a, 0.72).setOrigin(0.5, 0).setScrollFactor(0).setDepth(25);
-      if (i > 0) slot.on("pointerup", () => this.castSkill(i - 1));
       return { slot, label, shade };
     });
-    this.cds = {};
-    this.pets = [];
-    if (this.input.keyboard) {
-      this.input.keyboard.on("keydown-Q", () => this.castSkill(0));
-      this.input.keyboard.on("keydown-E", () => this.castSkill(1));
-      this.input.keyboard.on("keydown-R", () => this.castSkill(2));
-    }
-    this.nameTag = this.add.text(0, 0, classOf().name.toUpperCase(), {
+    this.nameTag = this.add.text(0, 0, "DUELIST", {
       fontFamily: TITLE, fontSize: "12px", color: "#f6e7b2", stroke: "#140e08", strokeThickness: 4,
     }).setOrigin(0.5, 1).setDepth(12);
     this.shownHp = s.hp;
@@ -139,12 +108,8 @@ class DungeonScene extends Phaser.Scene {
   fitHud() {
     const { w, h } = this.view();
     const bw = this._barW();
-    this.mallBtn.setPosition(w - 40, h - 108);
-    this.mallLabel.setPosition(w - 40, h - 108);
-    this.gearBtn.setPosition(w - 110, h - 108);
-    this.gearLabel.setPosition(w - 110, h - 108);
-    this.autoBtn.setPosition(w - 180, h - 108);
-    this.autoLabel.setPosition(w - 180, h - 108);
+    this.mallBtn.setPosition(w - 48, h - 108);
+    this.mallLabel.setPosition(w - 48, h - 108);
     const barY = h - 36;
     this.hpBg.setPosition(w / 2, barY).setSize(bw, 14);
     this.hpGhost.setPosition(w / 2 - bw / 2, barY).setSize(bw, 14);
@@ -176,9 +141,9 @@ class DungeonScene extends Phaser.Scene {
   drawVignette() {
     const { w, h } = this.view();
     this.vignette.clear();
-    this.vignette.fillStyle(0x000000, 0.28);
-    this.vignette.fillRect(0, 0, w, 10);
-    this.vignette.fillRect(0, h - 10, w, 10);
+    this.vignette.fillStyle(0x000000, 0.55);
+    this.vignette.fillRect(0, 0, w, 18);
+    this.vignette.fillRect(0, h - 18, w, 18);
     for (let i = 0; i < 5; i++) {
       this.vignette.fillStyle(0x000000, 0.07);
       const t = 10 + i * 14;
@@ -196,13 +161,10 @@ class DungeonScene extends Phaser.Scene {
     const ix = w * (land ? 0.08 : 0.11);
     const iy = h * 0.13;
     this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
-    const key = this.textures.exists("tier" + this.tier) ? "tier" + this.tier : (land ? "roomL" : "roomP");
-    this.roomArt.setTexture(key);
+    this.roomArt.setTexture(land ? "roomL" : "roomP");
     this.roomArt.setPosition(w / 2, h / 2);
-    const cover = Math.max(w / this.roomArt.width, h / this.roomArt.height);
-    this.roomCover = cover * 1.08;
-    this.roomArt.setScale(this.roomCover);
-    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
+    this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
+    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x04060c, 0.34);
     this.walls.clear(true, true);
     this.mobs.forEach((m) => {
       m.sprite.destroy();
@@ -220,9 +182,18 @@ class DungeonScene extends Phaser.Scene {
     });
     this.door = this.add.rectangle(w / 2, iy + 8, Math.min(120, w * 0.28), 22, 0xffc070, this.doorOpen ? 0.75 : 0).setDepth(3);
     if (this.gloom) this.gloom.destroy();
-    this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0).setDepth(2);
+    this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x03040a, 0.22).setDepth(2);
     if (this.lamps) this.lamps.forEach((lamp) => lamp.destroy());
     this.lamps = [];
+    const spots = land
+      ? [[0.13, 0.34], [0.13, 0.7], [0.87, 0.34], [0.87, 0.7]]
+      : [[0.17, 0.28], [0.17, 0.64], [0.83, 0.3], [0.83, 0.66]];
+    spots.forEach(([sx, sy], i) => {
+      const lamp = this.add.image(w * sx, h * sy, "glow").setBlendMode(Phaser.BlendModes.ADD).setDepth(3).setAlpha(0.5);
+      lamp.setScale(Math.max(1.1, w / 280));
+      this.tweens.add({ targets: lamp, alpha: { from: 0.32, to: 0.62 }, duration: 380 + i * 90, yoyo: true, repeat: -1 });
+      this.lamps.push(lamp);
+    });
 
     const spawn = { x: w / 2, y: h * 0.72 };
     if (!keepPlayer) this.player.setPosition(spawn.x, spawn.y);
@@ -251,23 +222,20 @@ class DungeonScene extends Phaser.Scene {
         const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 36, w * 0.24, w * 0.76);
         const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
-        const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.92);
-        const want = (p.kind === "boss" ? 0.24 : p.kind === "elite" ? 0.13 : 0.085) * h;
-        const sc = want / sprite.height;
-        sprite.setScale(sc);
-        sprite.play(tex + "-move");
+        const sc = p.kind === "boss" ? 0.48 : p.kind === "elite" ? 0.36 : 0.32;
+        const sprite = this.physics.add.sprite(x, y, tex, 0).setDepth(6).setOrigin(0.5, 0.9).setScale(sc);
+        sprite.play(tex + "-idle");
         sprite.body.setImmovable(true);
         const pull = p.kind === "boss" ? Math.min(120, w * 0.2) : Math.min(78, w * 0.15);
-        const shadow = this.add.ellipse(x, y + 4, sprite.displayWidth * 0.5, 14, 0x000000, 0.45).setDepth(5);
+        const shadow = this.add.ellipse(x, y + 6, sc * 180, sc * 52, 0x000000, 0.5).setDepth(5);
         const wide = p.kind === "elite" ? 46 : 30;
         const head = y - sprite.displayHeight * 0.92;
         const barBg = this.add.rectangle(x, head, wide, p.kind === "elite" ? 5 : 3, 0x140808).setDepth(7).setVisible(false);
         const bar = this.add.rectangle(x - wide / 2, head, wide, p.kind === "elite" ? 5 : 3, 0x9a1c18).setOrigin(0, 0.5).setDepth(8).setVisible(false);
         if (p.kind === "elite") bar.setStrokeStyle(1, 0xd4b56a, 0.9);
-        const hp = Math.floor(enemyHp(this.tier, p.kind) * (this.world ? 2 : 1) * (NO_WEAPON.has(this.tier) && p.kind === "boss" ? 1.5 : 1));
         this.mobs.push({
           sprite, shadow, bar, barBg, barW: wide, kind: p.kind, homeX: x, homeY: y,
-          hp, max: hp,
+          hp: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1), max: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1),
           state: "idle", pull, leash: p.kind === "boss" ? 280 : 210,
           baseScale: sc, attackAt: 0, slamming: false,
         });
@@ -276,7 +244,6 @@ class DungeonScene extends Phaser.Scene {
 
     this.enrageAt = last && this.tier >= 13 ? this.time.now + (this.tier === 16 ? 180000 : 140000) : 0;
     this.hint.setText(`${T.inst.toUpperCase()}   ·   ${this.roomIndex + 1} / ${this.roomsTotal}`);
-    if (NO_WEAPON.has(this.tier) && !this.forge && this.roomIndex === 0) this.toast("No new blade here. The boss is heavier.");
     this.fitHud();
     this.advancing = false;
     this._fitLock = false;
@@ -284,33 +251,33 @@ class DungeonScene extends Phaser.Scene {
   landHit(best, s, px, py) {
     const ang = Phaser.Math.Angle.Between(px, py, best.sprite.x, best.sprite.y);
     best.hp -= s.hit;
-    best.state = "combat";
-    if ((profile.classId || "") === "spellweave") {
-      const bolt = this.add.circle(px, py - this.player.displayHeight * 0.45, 6, 0x8fd8ff, 0.95).setDepth(11);
-      this.tweens.add({
-        targets: bolt, x: best.sprite.x, y: best.sprite.y - 16, scale: 0.4, duration: 140,
-        onComplete: () => bolt.destroy(),
-      });
-    }
-    if ((profile.graveUntil || 0) > Date.now()) this.hp = Math.min(this.maxHp, this.hp + s.hit * 0.2);
-    if ((profile.phantomUntil || 0) > Date.now()) best.hp -= Math.round(s.hit * 0.7);
-    if (this.cleaveLeft > 0) {
-      this.cleaveLeft--;
-      this.mobs.forEach((m) => {
-        if (m === best || m.hp <= 0 || m.state !== "combat") return;
-        if (Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y) > 130) return;
-        m.hp -= s.hit * 1.5;
-        this.floatText(m.sprite.x, m.sprite.y - 16, `${Math.round(s.hit * 1.5)}`, "#ffe27a");
-        if (m.hp <= 0) this.fell(m);
-      });
-    }
     this.nextSwing = this.time.now / 1000 + s.swing;
-    this.strikeUntil = this.time.now + 280;
+    this.strikeUntil = this.time.now + 110;
     this.player.setFlipX(Math.cos(ang) < 0);
-    this.player.setVelocity(0, 0);
-    this.player.setRotation(0);
-    this.player.setScale(this.heroScale);
-    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== this.heroSet().attack) this.player.play(this.heroSet().attack);
+    this.player.setVelocity(Math.cos(ang) * 220, Math.sin(ang) * 220);
+    this.tweens.add({ targets: this.player, rotation: ang * 0.35, duration: 80, yoyo: true });
+    const ghost = this.add.sprite(this.player.x, this.player.y, "hero", 0)
+      .setScale(this.player.scaleX, this.player.scaleY).setFlipX(this.player.flipX)
+      .setAlpha(0.4).setTint(0xffe2a0).setDepth(5).setOrigin(0.5, 0.9);
+    this.tweens.add({ targets: ghost, alpha: 0, x: this.player.x - Math.cos(ang) * 16, duration: 160, onComplete: () => ghost.destroy() });
+    const arc = { t: 0 };
+    const g = this.add.graphics().setDepth(9);
+    this.tweens.add({
+      targets: arc, t: 1, duration: 160,
+      onUpdate: () => {
+        g.clear();
+        const a = ang - 1.35 + arc.t * 2.5;
+        g.lineStyle(10, 0xfff6d0, 0.28 * (1 - arc.t));
+        g.beginPath();
+        g.arc(this.player.x, this.player.y - 30, 62, a, a + 1.05, false);
+        g.strokePath();
+        g.lineStyle(3, 0xffffff, 0.9 * (1 - arc.t));
+        g.beginPath();
+        g.arc(this.player.x, this.player.y - 30, 54, a + 0.15, a + 0.85, false);
+        g.strokePath();
+      },
+      onComplete: () => g.destroy(),
+    });
     const ring = this.add.circle(best.sprite.x, best.sprite.y - 8, 6).setStrokeStyle(3, 0xfff1c4, 0.9).setDepth(9);
     this.tweens.add({ targets: ring, scale: 4.2, alpha: 0, duration: 180, onComplete: () => ring.destroy() });
     this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, best.hp <= 0 ? 22 : 12);
@@ -327,147 +294,30 @@ class DungeonScene extends Phaser.Scene {
       scaleY: best.sprite.scaleY * 0.82,
       duration: 50, yoyo: true,
     });
-    if (best.hp <= 0) this.fell(best);
-    else this.time.delayedCall(70, () => { if (best.hp > 0) best.sprite.setTint(0xffd0c0); });
-  }
-  fell(m) {
-    if (!m || m.state === "dead") return;
-    m.state = "dead";
-    m.hp = 0;
-    this.sparks.emitParticleAt(m.sprite.x, m.sprite.y, 16);
-    if (m.shadow) m.shadow.destroy();
-    if (m.bar) m.bar.destroy();
-    if (m.barBg) m.barBg.destroy();
-    const mode = this.forge ? "forge" : this.world ? "world" : "pit";
-    this.floatText(m.sprite.x, m.sprite.y - 40, grantKill(m.kind, this.tier, mode), "#7ee0e6");
-    this.tweens.add({
-      targets: m.sprite, alpha: 0, y: m.sprite.y - 36, angle: 28, duration: 280,
-      onComplete: () => m.sprite.destroy(),
-    });
-  }
-  hurtMob(m, dmg) {
-    if (!m || m.hp <= 0) return;
-    m.hp -= dmg;
-    m.state = m.state === "idle" ? "combat" : m.state;
-    this.floatText(m.sprite.x, m.sprite.y - 18, `${Math.round(dmg)}`, "#fff6d0");
-    if (m.hp <= 0) this.fell(m);
-  }
-  nearestFoe(maxDist) {
-    let best = null, bd = maxDist;
-    for (const m of this.mobs) {
-      if (m.hp <= 0) continue;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
-      if (d < bd) { bd = d; best = m; }
+    if (best.hp <= 0) {
+      best.state = "dead";
+      this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 18);
+      if (best.shadow) best.shadow.destroy();
+      if (best.bar) best.bar.destroy();
+      if (best.barBg) best.barBg.destroy();
+      const mode = this.forge ? "forge" : this.world ? "world" : "pit";
+      this.floatText(best.sprite.x, best.sprite.y - 40, grantKill(best.kind, this.tier, mode), "#7ee0e6");
+      this.tweens.add({
+        targets: best.sprite, alpha: 0, y: best.sprite.y - 36, angle: 28, duration: 280,
+        onComplete: () => best.sprite.destroy(),
+      });
+    } else {
+      this.time.delayedCall(70, () => { if (best.hp > 0) best.sprite.setTint(0xffd0c0); });
     }
-    return best;
-  }
-  blast(range, dmg, color) {
-    const ring = this.add.circle(this.player.x, this.player.y - 10, 12, color, 0.28).setDepth(8);
-    this.tweens.add({ targets: ring, scale: range > 400 ? 7 : 3.2, alpha: 0, duration: 280, onComplete: () => ring.destroy() });
-    let n = 0;
-    this.mobs.forEach((m) => {
-      if (m.hp <= 0) return;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
-      if (d > range) return;
-      n++;
-      this.hurtMob(m, dmg);
-    });
-    if (!n) this.toast("Nothing in range");
-    sfx(n ? "hit" : "swing");
-  }
-  addPet(tint) {
-    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound", 0).setTint(tint).setDepth(6).setOrigin(0.5, 0.92);
-    pet.setScale(Math.max(0.04, (this.scale.height * 0.08) / pet.height));
-    pet.play("hound-move");
-    this.pets.push({ sprite: pet, until: this.time.now + 14000, next: 0 });
-  }
-  castSkill(index) {
-    const sk = classOf().skills[index];
-    if (!sk) return;
-    if ((this.cds[sk.id] || 0) > this.time.now) return;
-    this.cds[sk.id] = this.time.now + sk.cd * 1000;
-    const s = compute();
-    const id = sk.id;
-    if (id === "guard") { this.guardUntil = this.time.now + 2500; this.toast("Guard"); sfx("door"); }
-    else if (id === "titanwake") { profile.titanUntil = Date.now() + 5000; this.toast("Titanwake"); sfx("kill"); }
-    else if (id === "cleave") { this.cleaveLeft = 1; this.toast("Cleave armed"); sfx("swing"); }
-    else if (id === "bolt" || id === "spark") this.blast(240, s.hit * 1.5, 0x7ee8ff);
-    else if (id === "meteor") this.blast(999, s.hit * 1.7, 0xff8844);
-    else if (id === "weave" || id === "surge") {
-      profile.overloadUntil = Date.now() + 4000;
-      if (id === "surge") profile.stormUntil = Date.now() + 4000;
-      this.toast(id === "surge" ? "Surge" : "Weave");
-      sfx("swing");
-    }
-    else if (id === "step" || id === "tear") this.dash(id === "tear" ? s.hit : 0);
-    else if (id === "smoke") {
-      this.mobs.forEach((m) => { if (m.state === "combat") m.state = "leash"; });
-      this.toast("Smoke");
-      sfx("step");
-    }
-    else if (id === "execute") {
-      const m = this.nearestFoe(120);
-      if (!m) return this.toast("Too far");
-      const big = m.hp / m.max < 0.35;
-      this.hurtMob(m, s.hit * (big ? 3 : 1.3));
-      sfx(big ? "kill" : "hit");
-    }
-    else if (id === "mend" || id === "starlight") {
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (id === "mend" ? 0.35 : 0.22));
-      this.toast(id === "mend" ? "Mend" : "Starlight");
-      sfx("door");
-    }
-    else if (id === "oath") {
-      this.oathUntil = this.time.now + 4000;
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.12);
-      this.toast("Oath");
-    }
-    else if (id === "dawnstrike") {
-      const m = this.nearestFoe(140);
-      if (m) this.hurtMob(m, s.hit * 2);
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.1);
-    }
-    else if (id === "pet") this.addPet(0x86efac);
-    else if (id === "volley") this.blast(260, s.hit * 0.9, 0x86efac);
-    else if (id === "howl") { profile.howlUntil = Date.now() + 5000; this.toast("Howl"); sfx("kill"); }
-    else if (id === "rift" || id === "rift2") this.addPet(id === "rift" ? 0xf472b6 : 0xa78bfa);
-    else if (id === "detonate") {
-      this.pets.forEach((p) => p.sprite.destroy());
-      this.pets = [];
-      this.blast(180, s.hit * 2, 0xf472b6);
-    }
-    else if (id === "storm") this.blast(220, s.hit * 1.1, 0x67e8f9);
-    else if (id === "brand") { profile.brandUntil = Date.now() + 6000; this.toast("Brand"); }
-    else if (id === "rune") this.blast(150, s.hit * 1.6, 0xf87171);
-    else if (id === "grave") { profile.graveUntil = Date.now() + 6000; this.toast("Grave"); }
-    else if (id === "star") { profile.starUntil = Date.now() + 5000; this.toast("Star"); }
-    else if (id === "nova") this.blast(999, s.hit * 1.3, 0xfde68a);
-    else if (id === "phantom") { profile.phantomUntil = Date.now() + 5000; this.toast("Phantom"); sfx("swing"); }
-    else if (id === "collapse") this.blast(999, s.hit * 2.2, 0xa78bfa);
-  }
-  dash(dmg) {
-    const vx = this.stick.ax || (this.player.flipX ? -1 : 1);
-    const vy = this.stick.ay || 0;
-    const mag = Math.hypot(vx, vy) || 1;
-    const nx = Phaser.Math.Clamp(this.player.x + (vx / mag) * 120, 40, this.scale.width - 40);
-    const ny = Phaser.Math.Clamp(this.player.y + (vy / mag) * 120, 80, this.scale.height - 150);
-    this.player.setPosition(nx, ny);
-    sfx("step");
-    if (dmg) this.blast(70, dmg, 0xa78bfa);
-    else this.toast("Step");
   }
   spawnEmber() {
     const { w, h } = this.view();
-    const x = Phaser.Math.Between(16, Math.max(17, w - 16));
-    const y = Phaser.Math.Between(Math.floor(h * 0.16), Math.max(40, h - 90));
-    const warm = Math.random() < 0.6;
-    const c = this.add.circle(x, y, warm ? 1.3 : 1, warm ? 0xffc56a : 0xf4ead2, 0.4).setDepth(4);
+    const lamp = this.lamps && this.lamps.length ? this.lamps[Math.floor(Math.random() * this.lamps.length)] : null;
+    const x = lamp ? lamp.x + Phaser.Math.Between(-18, 18) : Phaser.Math.Between(20, Math.max(21, w - 20));
+    const y = lamp ? lamp.y + Phaser.Math.Between(-8, 16) : Phaser.Math.Between(Math.floor(h * 0.25), Math.max(30, h - 40));
+    const c = this.add.circle(x, y, 1.5, 0xffb060, 0.7).setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({
-      targets: c,
-      y: y - Phaser.Math.Between(60, 150),
-      x: x + Phaser.Math.Between(-28, 28),
-      alpha: 0,
-      duration: Phaser.Math.Between(3200, 5600),
+      targets: c, y: c.y - Phaser.Math.Between(40, 110), alpha: 0, duration: Phaser.Math.Between(1400, 2600),
       onComplete: () => { c.destroy(); if (this.scene.isActive()) this.spawnEmber(); },
     });
   }
@@ -509,65 +359,6 @@ class DungeonScene extends Phaser.Scene {
     sp.setScale(base * (1 + wave * 0.06), base * (1 - wave * 0.07));
     sp.setRotation(wave * (m.state === "combat" ? 0.14 : 0.05));
   }
-  swingBlade(ang) {
-    if (this.bladeTween) this.bladeTween.stop();
-    const state = { a: ang - 1.7 };
-    this.bladeSwinging = true;
-    this.bladeAngle = state.a;
-    this.bladeTween = this.tweens.add({
-      targets: state,
-      a: ang + 1.15,
-      duration: 260,
-      ease: "Cubic.easeOut",
-      onUpdate: () => { this.bladeAngle = state.a; },
-      onComplete: () => {
-        this.bladeTween = this.tweens.add({
-          targets: state,
-          a: ang + 0.45,
-          duration: 180,
-          ease: "Sine.easeOut",
-          onUpdate: () => { this.bladeAngle = state.a; },
-          onComplete: () => { this.bladeSwinging = false; },
-        });
-      },
-    });
-    const g = this.add.graphics().setDepth(8);
-    const arc = { t: 0 };
-    this.tweens.add({
-      targets: arc, t: 1, duration: 260,
-      onUpdate: () => {
-        g.clear();
-        const a = ang - 1.5 + arc.t * 2.4;
-        const reach = this.player.displayHeight * 0.85;
-        g.lineStyle(Math.max(3, reach * 0.08), 0xfff6d8, 0.75 * (1 - arc.t));
-        g.beginPath();
-        g.arc(this.player.x, this.player.y - this.player.displayHeight * 0.35, reach, a, a + 0.7, false);
-        g.strokePath();
-      },
-      onComplete: () => g.destroy(),
-    });
-  }
-  placeBlade() {
-    if (!this.blade) {
-      this.blade = this.add.rectangle(0, 0, 6, 64, 0xf4f1ea).setOrigin(0.5, 0.12).setDepth(12);
-      this.bladeEdge = this.add.rectangle(0, 0, 2, 58, 0xe7c56a).setOrigin(0.5, 0.08).setDepth(13);
-      this.bladeAngle = 0.7;
-    }
-    const side = this.player.flipX ? -1 : 1;
-    const x = this.player.x + side * this.player.displayWidth * 0.34;
-    const handY = this.player.y - this.player.displayHeight * 0.62;
-    const len = Math.max(22, this.player.displayHeight * 0.7);
-    let ang = this.bladeAngle;
-    if (!this.bladeSwinging && this.player.flipX) ang = Math.PI - this.bladeAngle;
-    this.blade.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(2, len * 0.06), len);
-    this.bladeEdge.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(1, len * 0.02), len * 0.9);
-  }
-  paintAuto() {
-    const on = !!profile.auto;
-    this.autoBtn.setFillStyle(on ? 0x3a2412 : 0x16120c);
-    this.autoLabel.setColor(on ? "#f0d080" : "#e8d59a");
-    this.autoLabel.setText(on ? "AUTO" : "AUTO");
-  }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
       fontFamily: FONT, fontSize: "14px", color: "#e8d59a", backgroundColor: "#140e08", padding: { x: 12, y: 7 },
@@ -582,74 +373,7 @@ class DungeonScene extends Phaser.Scene {
     t.setScale(0.6);
     this.tweens.add({ targets: t, y: y - 36, scale: 1.15, alpha: 0, duration: 520, ease: "Cubic.easeOut", onComplete: () => t.destroy() });
   }
-  heroSet() {
-    const id = profile.classId || "ironblade";
-    if (id === "spellweave") return { idle: "weave-idle", walk: "weave-walk", attack: "weave-attack" };
-    if (id === "shadestep") return { idle: "shade-idle", walk: "shade-idle", attack: "shade-attack" };
-    return { idle: "hero-idle", walk: "hero-walk", attack: "hero-attack" };
-  }
-  openPanel(title, body, buttons) {
-    this.paused = true;
-    this.player.setVelocity(0, 0);
-    if (this.panel) this.panel.destroy();
-    const { w, h } = this.view();
-    const box = this.add.container(0, 0).setDepth(60);
-    const dim = this.add.rectangle(w / 2, h / 2, w, h, 0x07060a, 0.78).setScrollFactor(0);
-    const card = this.add.rectangle(w / 2, h / 2, Math.min(440, w - 24), 250, 0x14110c).setStrokeStyle(2, 0xd4b56a).setScrollFactor(0);
-    const head = this.add.text(w / 2, h / 2 - 96, title, { fontFamily: TITLE, fontSize: "22px", color: "#f0e2b0" }).setOrigin(0.5).setScrollFactor(0);
-    const copy = this.add.text(w / 2, h / 2 - 48, body, {
-      fontFamily: FONT, fontSize: "14px", color: "#d9d3c4", align: "center", wordWrap: { width: Math.min(400, w - 48) },
-    }).setOrigin(0.5).setScrollFactor(0);
-    box.add([dim, card, head, copy]);
-    buttons.forEach((b, i) => {
-      const x = w / 2 + (i - (buttons.length - 1) / 2) * 120;
-      const y = h / 2 + 72;
-      const hit = this.add.rectangle(x, y, 108, 36, b.pay ? 0x3a2412 : 0x1a1610).setStrokeStyle(1, 0xf0d080, 0.8).setScrollFactor(0).setInteractive({ useHandCursor: true });
-      const label = this.add.text(x, y, b.label, { fontFamily: TITLE, fontSize: "12px", color: "#f0e2b0" }).setOrigin(0.5).setScrollFactor(0);
-      hit.on("pointerup", () => { this.paused = false; box.destroy(); this.panel = null; b.fn(); });
-      box.add([hit, label]);
-    });
-    this.panel = box;
-  }
-  openWipe() {
-    const s = compute();
-    const miss = bestMissing(this.tier);
-    const offer = miss
-      ? `${miss.name} is the biggest swing you are missing.\n${miss.gap ? `${miss.gap} marks short · ${miss.med} medallions` : "You can buy it with marks."}`
-      : "Your set for this tier is complete.";
-    this.openPanel("YOU DIED", `Swing ${s.swing.toFixed(2)}s\n${offer}`, [
-      { label: "GRIND", fn: () => this.recover() },
-      { label: miss && miss.gap ? "PAY" : "VENDOR", pay: true, fn: () => this.payOrVendor(miss) },
-    ]);
-  }
-  openClear() {
-    const miss = bestMissing(this.tier);
-    const body = miss
-      ? `${marksOf(this.tier)} ${TIERS[this.tier].name} marks.\n${miss.name}${miss.gap ? ` · ${miss.med} medallions finishes it` : " · you have the marks"}`
-      : `${TIERS[this.tier].inst} is clear. The set is yours.`;
-    this.openPanel(TIERS[this.tier].inst.toUpperCase(), body, [
-      { label: "HALL", fn: () => this.scene.start("mall") },
-      { label: miss && miss.gap ? "PAY" : "VENDOR", pay: true, fn: () => { if (miss && miss.gap) coverPiece(this.tier, miss.slot); this.scene.start("vendor", { tier: this.tier }); } },
-    ]);
-  }
-  recover() {
-    this.roomIndex = this.checkpoint;
-    this.doorOpen = false;
-    const st = compute();
-    this.hp = st.hp;
-    this.maxHp = st.hp;
-    this.shownHp = st.hp;
-    this.buildRoom(false);
-  }
-  payOrVendor(miss) {
-    if (!miss) return this.scene.start("vendor", { tier: this.tier });
-    if (!miss.gap) return this.scene.start("vendor", { tier: this.tier });
-    const msg = coverPiece(this.tier, miss.slot);
-    this.toast(msg);
-    if (profile.owned.includes(`T${this.tier}_${miss.slot}`)) this.recover();
-  }
   update(_, dtMs) {
-    if (this.paused) return;
     const dt = Math.min(0.05, dtMs / 1000);
     const { w, h } = this.view();
     const s = compute();
@@ -658,78 +382,32 @@ class DungeonScene extends Phaser.Scene {
     if (this.keys.D.isDown || this.keys.RIGHT.isDown) vx += 1;
     if (this.keys.W.isDown || this.keys.UP.isDown) vy -= 1;
     if (this.keys.S.isDown || this.keys.DOWN.isDown) vy += 1;
-    const mag0 = Math.hypot(vx, vy);
-    if (profile.auto && mag0 < 0.2) {
-      let tx = 0, ty = 0, best = 1e9, found = false, stop = 32;
-      for (const m of this.mobs) {
-        if (m.hp <= 0) continue;
-        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
-        if (d < best) {
-          best = d;
-          tx = m.sprite.x;
-          ty = m.sprite.y;
-          found = true;
-          if ((profile.classId || "") === "spellweave") stop = Math.min(h * 0.34, 280);
-          else stop = Math.max(18, (m.pull || 70) * 0.45);
-        }
-      }
-      if (!found && this.doorOpen) {
-        tx = w / 2;
-        ty = h * 0.12;
-        best = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
-        found = true;
-        stop = 6;
-      }
-      if (found && best > stop) {
-        vx = (tx - this.player.x) / Math.max(1, best);
-        vy = (ty - this.player.y) / Math.max(1, best);
-      } else if (found && (profile.classId || "") === "spellweave" && best < stop * 0.55) {
-        vx = (this.player.x - tx) / Math.max(1, best);
-        vy = (this.player.y - ty) / Math.max(1, best);
-      }
-      if (found && best < Math.max(220, this.player.displayHeight * 2)) {
-        const cls = classOf();
-        cls.skills.forEach((sk, i) => {
-          if ((this.cds[sk.id] || 0) <= this.time.now) this.castSkill(i);
-        });
-      }
-    }
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { vx /= mag; vy /= mag; }
     const striking = this.time.now < this.strikeUntil;
     if (!striking) this.player.setVelocity(vx * 250, vy * 250);
     if (!striking) {
       if (vx) this.player.setFlipX(vx < 0);
-      this.player.setScale(this.heroScale);
-      this.player.setRotation(0);
-      const moving = mag > 0.15;
-      const set = this.heroSet();
-      const want = moving ? set.walk : set.idle;
-      if (this.player.anims.currentAnim?.key !== want) this.player.play(want);
-      const cls = profile.classId || "ironblade";
-      if (cls === "ironblade" || cls === "spellweave" || cls === "shadestep") this.player.clearTint();
-      else this.player.setTint(Phaser.Display.Color.HexStringToColor(classOf().color).color);
-      if (moving && this.time.now > (this.nextStep || 0)) {
-        this.nextStep = this.time.now + 320;
-        sfx("step");
+      if (mag > 0.15) {
+        const bob = Math.sin(this.time.now / 90) * 0.035;
+        this.player.setScale(this.heroScale + bob, this.heroScale - bob * 0.6);
+        this.player.setRotation(vx * 0.12);
+        if (this.time.now > (this.nextStep || 0)) {
+          this.nextStep = this.time.now + 280;
+          sfx("step");
+          const puff = this.add.circle(this.player.x, this.player.y + 2, 5, 0xd8cbb4, 0.35).setDepth(4);
+          this.tweens.add({ targets: puff, y: puff.y - 12, alpha: 0, scale: 2.2, duration: 260, onComplete: () => puff.destroy() });
+        }
+      } else {
+        const breathe = 1 + Math.sin(this.time.now / 420) * 0.015;
+        this.player.setScale(this.heroScale * breathe, this.heroScale * (2 - breathe));
+        this.player.setRotation(0);
       }
     }
-    this.player.setDepth(6 + this.player.y * 0.01);
-    if (this.gearGlow) {
-      const hand = itemOf(profile.equipped.mainhand);
-      const owned = SLOTS.filter((slot) => (itemOf(profile.equipped[slot])?.tier || 0) >= this.tier).length;
-      this.gearGlow.setPosition(this.player.x, this.player.y - 6);
-      this.gearGlow.setFillStyle(TIERS[hand?.tier || 0].color, Math.min(0.4, 0.08 + owned / 28));
-      this.gearGlow.setScale(0.8 + owned / 10);
-    }
-    const ox = (this.player.x - w / 2) * 0.08;
-    const oy = (this.player.y - h * 0.48) * 0.06;
-    this.roomArt.setPosition(w / 2 - ox, h / 2 - oy);
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
-    const ranged = (profile.classId || "") === "spellweave";
-    const reach = ranged ? Math.max(w, h) * 0.78 : Math.max(170, this.player.displayHeight * 1.8);
+    const reach = 78;
     const hurt = 26;
 
     for (const m of this.mobs) {
@@ -742,7 +420,6 @@ class DungeonScene extends Phaser.Scene {
       m.barBg.setVisible(overhead).setPosition(m.sprite.x, head);
       m.bar.setVisible(overhead).setPosition(m.sprite.x - (m.barW || 30) / 2, head);
       if (m.shadow) m.shadow.setPosition(m.sprite.x, m.sprite.y + 6);
-      m.sprite.setDepth(5 + m.sprite.y * 0.01);
       m.bar.width = (m.barW || 30) * Math.max(0, m.hp / m.max);
       if (m.state === "idle") {
         if (m.kind === "boss") this.poseBoss(m, d);
@@ -763,21 +440,13 @@ class DungeonScene extends Phaser.Scene {
           m.sprite.clearTint();
           continue;
         }
-        const gap = (this.player.displayHeight + m.sprite.displayHeight) * 0.38;
         if (m.slamming) m.sprite.setVelocity(0, 0);
-        else if (d < gap && d > 2) {
-          const a = Math.atan2(m.sprite.y - py, m.sprite.x - px);
-          m.sprite.setPosition(px + Math.cos(a) * gap, py + Math.sin(a) * gap);
-          m.sprite.setVelocity(0, 0);
-        } else if (d > gap + 4) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
+        else if (d > hurt + 8) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
         else m.sprite.setVelocity(0, 0);
         if (m.kind === "boss") this.poseBoss(m, d);
-        if (d <= gap + 10) {
+        if (d <= hurt) {
           const kindMult = m.kind === "boss" ? 1.5 : m.kind === "elite" ? 1.2 : 1;
-          let taken = (2.1 + this.tier * 0.38) * kindMult * dt;
-          if (this.guardUntil > this.time.now) taken *= 0.35;
-          if (this.oathUntil > this.time.now) taken *= 0.7;
-          this.hp -= taken;
+          this.hp -= (2.1 + this.tier * 0.38) * kindMult * dt;
         }
         continue;
       }
@@ -795,7 +464,7 @@ class DungeonScene extends Phaser.Scene {
     if (now >= this.nextSwing) {
       let best = null, bd = 999;
       for (const m of this.mobs) {
-        if (m.hp <= 0 || (!ranged && m.state !== "combat")) continue;
+        if (m.hp <= 0 || m.state !== "combat") continue;
         const d = Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y);
         if (d < reach && d < bd) { bd = d; best = m; }
       }
@@ -827,8 +496,7 @@ class DungeonScene extends Phaser.Scene {
           }
         } else this.toast("Room clear — walk through the door");
       }
-      const doorLine = profile.auto ? h * 0.46 : h * 0.3;
-      if (this.doorOpen && py < doorLine) {
+      if (this.doorOpen && py < h * 0.24) {
         this.advancing = true;
         this.doorOpen = false;
         this.player.setVelocity(0, 0);
@@ -843,13 +511,24 @@ class DungeonScene extends Phaser.Scene {
             this.cameras.main.fadeIn(140, 7, 6, 10);
           });
         } else {
-          this.openClear();
+          this.toast(TIERS[this.tier].inst + " falls");
+          const trip = ++this.travelId;
+          this.time.delayedCall(450, () => {
+            if (trip !== this.travelId) return;
+            this.scene.start("mall");
+          });
         }
       }
     }
     if (this.hp <= 0) {
-      this.openWipe();
-      return;
+      this.toast("Wiped — back to the checkpoint");
+      this.cameras.main.flash(160, 80, 10, 10);
+      this.roomIndex = this.checkpoint;
+      this.doorOpen = false;
+      const st = compute();
+      this.hp = st.hp;
+      this.maxHp = st.hp;
+      this.buildRoom(false);
     }
 
     if (!this.joy) {
@@ -861,28 +540,6 @@ class DungeonScene extends Phaser.Scene {
 
     if (this.playerShadow) this.playerShadow.setPosition(this.player.x, this.player.y + 6);
     if (this.nameTag) this.nameTag.setPosition(this.player.x, this.player.y - this.player.displayHeight - 4);
-    const cls = classOf();
-    cls.skills.forEach((sk, i) => {
-      const slot = this.skillSlots[i + 1];
-      if (!slot) return;
-      slot.label.setText(sk.name.slice(0, 5).toUpperCase());
-      const left = Math.max(0, (this.cds[sk.id] || 0) - this.time.now);
-      slot.shade.height = 30 * Math.min(1, left / (sk.cd * 1000));
-    });
-    const petHit = ((profile.howlUntil || 0) > Date.now() ? 0.45 : 0.8) * 1000;
-    this.pets = this.pets.filter((p) => {
-      if (this.time.now > p.until || !p.sprite.active) { p.sprite.destroy(); return false; }
-      const foe = this.nearestFoe(999);
-      if (!foe) return true;
-      const ang = Phaser.Math.Angle.Between(p.sprite.x, p.sprite.y, foe.sprite.x, foe.sprite.y);
-      p.sprite.x += Math.cos(ang) * 90 * dt;
-      p.sprite.y += Math.sin(ang) * 90 * dt;
-      if (this.time.now > p.next && Phaser.Math.Distance.Between(p.sprite.x, p.sprite.y, foe.sprite.x, foe.sprite.y) < 36) {
-        p.next = this.time.now + petHit;
-        this.hurtMob(foe, compute().hit * 0.45);
-      }
-      return true;
-    });
 
     const bw = this._barW();
     const ratio = Math.max(0, this.hp / this.maxHp);
