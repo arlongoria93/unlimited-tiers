@@ -21,8 +21,23 @@ const TIERS = {
   16: { name: "Crown", inst: "Crown of the First", haste: 3.80, hit: 50, hp: 1600, color: 0xf0d060, rooms: 9, floor: 0x1c180c, fog: 0x4a3a10 },
 };
 
-const SLOTS = ["weapon", "armor", "ring", "trinket", "offset"];
-const SHARE = { weapon: 0.5, armor: 0.25, ring: 0.125, trinket: 0.125, offset: 0 };
+const SLOTS = ["head", "neck", "shoulders", "back", "chest", "wrists", "hands", "waist", "legs", "feet", "ring1", "ring2", "trinket1", "trinket2", "mainhand", "offhand"];
+const SLOT_NAME = {
+  head: "Head", neck: "Neck", shoulders: "Shoulders", back: "Back", chest: "Chest",
+  wrists: "Wrists", hands: "Hands", waist: "Waist", legs: "Legs", feet: "Feet",
+  ring1: "Ring 1", ring2: "Ring 2", trinket1: "Trinket 1", trinket2: "Trinket 2",
+  mainhand: "Main Hand", offhand: "Off Hand",
+};
+const SHARE = {
+  mainhand: 0.32, offhand: 0.18,
+  ring1: 0.06, ring2: 0.06, trinket1: 0.06, trinket2: 0.06,
+  neck: 0.025, back: 0.02,
+  head: 0.03, shoulders: 0.025, chest: 0.04, wrists: 0.02, hands: 0.025, waist: 0.02, legs: 0.035, feet: 0.02,
+};
+const COST = {
+  mainhand: 48, offhand: 28, chest: 18, legs: 16, head: 14, shoulders: 14, hands: 12,
+  waist: 12, feet: 12, wrists: 10, neck: 16, back: 16, ring1: 16, ring2: 16, trinket1: 16, trinket2: 16,
+};
 const NO_WEAPON = new Set([5, 6, 7, 8, 9, 10, 11, 15]);
 const ELEMENTS = ["Ember Brand", "Tide Brand", "Thorn Brand", "Iron Brand"];
 const W = { early: [0.28, 0.28, 0.22, 0.22], mid: [0.22, 0.26, 0.26, 0.26], late: [0.16, 0.24, 0.3, 0.3], wall: [0.12, 0.22, 0.33, 0.33], crown: [0.1, 0.18, 0.36, 0.36] };
@@ -45,14 +60,13 @@ function compute() {
     const it = itemOf(profile.equipped[slot]);
     if (!it) continue;
     const T = TIERS[it.tier] || TIERS[0];
-    haste += T.haste * SHARE[slot];
-    if (slot === "weapon") hit = T.hit;
-    if (slot === "armor") hp = T.hp;
+    haste += T.haste * (SHARE[slot] || 0);
+    if (slot === "mainhand") hit = T.hit;
+    if (slot === "chest") hp = T.hp;
     ts[slot] = it.tier;
   }
   if (profile.vip) haste += 0.05;
   if (profile.rite) haste += 0.03;
-  if (profile.equipped.offset) haste += 0.04;
   if ((profile.overloadUntil || 0) > Date.now()) haste += 0.5;
   if ((profile.starUntil || 0) > Date.now()) haste += 0.25;
   if ((profile.titanUntil || 0) > Date.now()) hit = Math.round(hit * 1.35);
@@ -70,8 +84,9 @@ function enemyHp(tier, kind) {
   return Math.floor(expectedDps(tier) * secs);
 }
 function itemOf(id) {
-  const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(id);
-  return m ? { tier: +m[1], slot: m[2], id } : null;
+  const m = /^T(\d+)_([a-z0-9]+)$/.exec(id || "");
+  if (!m || !SHARE[m[2]]) return null;
+  return { tier: +m[1], slot: m[2], id };
 }
 const CLASSES = [
   { id: "ironblade", name: "Ironblade", role: "Plate melee", tier: 0, cost: 0, color: "#e0b060",
@@ -118,41 +133,55 @@ function takeClass(id) {
 function blankProfile() {
   return {
     medallions: 24, fate: 2, vip: false, currentTier: 0,
-    equipped: { weapon: "T0_weapon", armor: "T0_armor", ring: "T0_ring", trinket: "T0_trinket" },
-    owned: ["T0_weapon", "T0_armor", "T0_ring", "T0_trinket"],
+    equipped: Object.fromEntries(SLOTS.map((slot) => [slot, `T0_${slot}`])),
+    owned: SLOTS.map((slot) => `T0_${slot}`),
     attuned: { 0: true, 1: true }, pity: {}, slotLock: 0, luckRuns: 0, lastDaily: 0,
     marks: {},
   };
 }
 let profile = Object.assign(blankProfile(), JSON.parse(localStorage.getItem("ut_phaser") || "{}"));
+function migrateGear() {
+  const old = { weapon: "mainhand", armor: "chest", ring: "ring1", trinket: "trinket1", offset: "neck" };
+  profile.owned = (profile.owned || []).map((id) => {
+    const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(id);
+    return m ? `T${m[1]}_${old[m[2]]}` : id;
+  });
+  const eq = {};
+  for (const [key, value] of Object.entries(profile.equipped || {})) {
+    const slot = old[key] || key;
+    const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(value || "");
+    if (!SLOTS.includes(slot)) continue;
+    eq[slot] = m ? `T${m[1]}_${old[m[2]]}` : value;
+  }
+  for (const slot of SLOTS) {
+    const rust = `T0_${slot}`;
+    if (!profile.owned.includes(rust)) profile.owned.push(rust);
+    if (!eq[slot] || !itemOf(eq[slot])) eq[slot] = rust;
+  }
+  profile.owned = [...new Set(profile.owned)].filter((id) => itemOf(id));
+  profile.equipped = eq;
+}
+migrateGear();
 const persist = () => localStorage.setItem("ut_phaser", JSON.stringify(profile));
 
 function slotsFor(tier) {
-  if (tier === 8) return ["offset"];
-  const slots = [];
-  if (tier !== 1 && !NO_WEAPON.has(tier)) slots.push("weapon");
-  slots.push("armor", "ring", "trinket");
-  if (tier >= 13) slots.push("offset");
+  if (tier === 8) return ["neck", "back", "ring1", "ring2", "trinket1", "trinket2"];
+  const slots = ["head", "neck", "shoulders", "back", "chest", "wrists", "hands", "waist", "legs", "feet", "ring1", "ring2", "trinket1", "trinket2"];
+  if (tier !== 1 && !NO_WEAPON.has(tier)) slots.push("mainhand", "offhand");
+  else if (tier === 1) slots.push("offhand");
   return slots;
 }
-function hasOffsetFor(tier) {
-  if (tier < 14) return true;
-  return profile.owned.some((id) => {
-    const it = itemOf(id);
-    return it && it.slot === "offset" && (it.tier === 8 || it.tier >= tier - 1);
-  });
-}
+function hasOffsetFor() { return true; }
 function canEnter(t) {
   if (profile.attuned[t]) return { ok: true, pay: false, why: "" };
   const need = t === 9 ? 7 : t - 1;
-  if (!hasOffsetFor(t)) return { ok: false, pay: false, why: "Need Vault offset or the previous offset" };
+  if (!hasOffsetFor(t)) return { ok: false, pay: false, why: "Need the previous tier's pieces" };
   const pay = highestWeapon() < need;
   if (pay && profile.medallions < 20 * t) return { ok: false, pay: false, why: `Need a T${need} blade or ${20 * t} med` };
   return { ok: true, pay, why: "" };
 }
 function markCost(tier, slot) {
-  const base = { weapon: 48, armor: 28, ring: 16, trinket: 16, offset: 22 }[slot] || 16;
-  return base * tier;
+  return (COST[slot] || 16) * tier;
 }
 function marksOf(tier) {
   return (profile.marks && profile.marks[tier]) || 0;
@@ -166,11 +195,11 @@ function buyPiece(tier, slot) {
   const id = `T${tier}_${slot}`;
   if (profile.owned.includes(id)) return "Already owned";
   if (!slotsFor(tier).includes(slot)) return "Not sold here";
-  if (tier === 12 && slot === "weapon" && !(profile.upgradeMarks > 0)) return "Need an Upgrade Mark from the Titan boss";
+  if (tier === 12 && slot === "mainhand" && !(profile.upgradeMarks > 0)) return "Need an Upgrade Mark from the Titan boss";
   const cost = markCost(tier, slot);
   if (marksOf(tier) < cost) return `Need ${cost - marksOf(tier)} more`;
   profile.marks[tier] -= cost;
-  if (tier === 12 && slot === "weapon") profile.upgradeMarks--;
+  if (tier === 12 && slot === "mainhand") profile.upgradeMarks--;
   profile.owned.push(id);
   profile.equipped[slot] = id;
   persist();
@@ -182,8 +211,8 @@ function buyElement(index) {
   if (have < cost) return `Need ${cost - have} cinders`;
   profile.cinders = have - cost;
   profile.element = ELEMENTS[index];
-  if (!profile.owned.includes("T1_weapon")) profile.owned.push("T1_weapon");
-  profile.equipped.weapon = "T1_weapon";
+  if (!profile.owned.includes("T1_mainhand")) profile.owned.push("T1_mainhand");
+  profile.equipped.mainhand = "T1_mainhand";
   persist();
   return profile.element;
 }
@@ -217,7 +246,7 @@ function highestWeapon() {
   let b = 0;
   for (const id of profile.owned) {
     const it = itemOf(id);
-    if (it && it.slot === "weapon") b = Math.max(b, it.tier);
+    if (it && it.slot === "mainhand") b = Math.max(b, it.tier);
   }
   return b;
 }
@@ -229,22 +258,36 @@ function ownedSlots(tier) {
   }
   return h;
 }
-function dropPiece(tier, src) {
-  const have = ownedSlots(tier);
-  const weights = W[band(tier)].slice();
-  const luck = profile.luckRuns > 0 ? 2 : 1;
-  const lock = profile.slotLock > 0;
-  for (let i = 0; i < 4; i++) {
-    if (have[SLOTS[i]] && lock) weights[i] = 0;
-    if (!have[SLOTS[i]]) weights[i] *= luck;
+function wearNext(slot) {
+  const owned = profile.owned.map(itemOf).filter((it) => it && it.slot === slot).sort((a, b) => a.tier - b.tier);
+  if (!owned.length) return "Nothing owned";
+  const cur = profile.equipped[slot];
+  let i = owned.findIndex((it) => it.id === cur);
+  i = (i + 1) % owned.length;
+  profile.equipped[slot] = owned[i].id;
+  persist();
+  return `${SLOT_NAME[slot]}  T${owned[i].tier}`;
+}
+function equipBest() {
+  for (const slot of SLOTS) {
+    let best = profile.equipped[slot];
+    let tier = itemOf(best)?.tier || -1;
+    for (const id of profile.owned) {
+      const it = itemOf(id);
+      if (it && it.slot === slot && it.tier >= tier) { best = id; tier = it.tier; }
+    }
+    if (best) profile.equipped[slot] = best;
   }
-  const sum = weights.reduce((a, b) => a + b, 0) || 1;
-  let r = Math.random() * sum, slot = "trinket";
-  for (let i = 0; i < 4; i++) { r -= weights[i]; if (r <= 0) { slot = SLOTS[i]; break; } }
+  persist();
+}
+function dropPiece(tier, src) {
+  const options = slotsFor(tier);
+  const have = ownedSlots(tier);
   profile.pity[tier] = (profile.pity[tier] || 0) + 1;
   const pityAt = tier <= 4 ? 5 : tier <= 8 ? 7 : tier <= 12 ? 8 : tier <= 15 ? 12 : 20;
+  let slot = options[Math.floor(Math.random() * options.length)] || "trinket1";
   if (profile.pity[tier] >= pityAt) {
-    slot = SLOTS.find((s) => !have[s]) || slot;
+    slot = options.find((s) => !have[s]) || slot;
     profile.pity[tier] = 0;
   }
   const id = `T${tier}_${slot}`;
@@ -255,8 +298,8 @@ function dropPiece(tier, src) {
     msg = `Duplicate T${tier} ${slot}  +${c} med`;
   } else {
     profile.owned.push(id);
-    if (slot === "weapon") profile.pity[tier] = 0;
-    msg = `${src}  ·  T${tier} ${slot.toUpperCase()}`;
+    if (slot === "mainhand") profile.pity[tier] = 0;
+    msg = `${src}  ·  T${tier} ${SLOT_NAME[slot] || slot}`;
   }
   if (profile.luckRuns > 0) profile.luckRuns--;
   if (profile.slotLock > 0) profile.slotLock--;

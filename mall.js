@@ -69,9 +69,10 @@ class MallScene extends Phaser.Scene {
       card.on("pointerup", () => this.enter(t, locked));
     }
 
-    this.btn(w * 0.18, h - 28, "VENDOR", () => this.scene.start("vendor"));
-    this.btn(w * 0.5, h - 28, "CLASS", () => this.scene.start("classes"));
-    this.btn(w * 0.82, h - 28, "FORGE", () => this.scene.start("forge"));
+    this.btn(w * 0.14, h - 28, "VENDOR", () => this.scene.start("vendor"), 74);
+    this.btn(w * 0.38, h - 28, "GEAR", () => this.scene.start("gear"), 74);
+    this.btn(w * 0.62, h - 28, "CLASS", () => this.scene.start("classes"), 74);
+    this.btn(w * 0.86, h - 28, "FORGE", () => this.scene.start("forge"), 74);
 
     const s0 = compute();
     this.formula = this.add.text(16, h - 118, "swing = max(0.20,  1 / (1 + haste))", {
@@ -114,8 +115,8 @@ class MallScene extends Phaser.Scene {
       onComplete: () => { c.destroy(); if (this.scene.isActive()) this.riseEmber(this.scale.width, this.scale.height); },
     });
   }
-  btn(x, y, label, fn) {
-    const r = this.add.rectangle(x, y, 108, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
+  btn(x, y, label, fn, width = 108) {
+    const r = this.add.rectangle(x, y, width, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
     this.add.text(x, y, label, { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5);
     r.on("pointerup", fn);
   }
@@ -245,30 +246,42 @@ class VendorScene extends Phaser.Scene {
     this.add.text(w / 2, 44, `${marksOf(t)} ${T.name} Marks   ·   only from ${T.inst}`, {
       fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
-    const note = t === 1 ? "The blade is not here. Farm cinders at the Forge."
-      : t === 8 ? "Optional and mean. Offset only. T9 still keys off a T7 blade."
-      : NO_WEAPON.has(t) ? "No new blade. Your last weapon keeps swinging."
-      : t === 12 ? `Upgrade Marks ${profile.upgradeMarks || 0}. The boss drops them. Honor can buy one.`
-      : "Marks from this tier only.";
+    const note = t === 1 ? "Main hand is the forge. Everything else is bought here."
+      : t === 8 ? "Vault sells jewelry only."
+      : NO_WEAPON.has(t) ? "No new weapons. Your last blades keep swinging."
+      : t === 12 ? `Upgrade Marks ${profile.upgradeMarks || 0}. The boss drops them.`
+      : "Marks from this tier only. One piece per slot.";
     this.add.text(w / 2, 66, note, {
       fontFamily: FONT, fontSize: "11px", color: "#8a8680", wordWrap: { width: w - 32 }, align: "center",
     }).setOrigin(0.5, 0);
 
     const slots = slotsFor(t);
+    const cols = w > h ? 4 : 2;
+    const rows = Math.ceil(slots.length / cols);
+    const top = 96;
+    const rh = Math.min(46, (h - 148) / rows);
+    const colW = (w - 16) / cols;
     slots.forEach((slot, i) => {
-      const y = 104 + i * 52;
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = 8 + col * colW + colW / 2;
+      const y = top + row * rh + rh / 2;
       const id = `T${t}_${slot}`;
       const owned = profile.owned.includes(id);
       const cost = markCost(t, slot);
-      const needsMark = t === 12 && slot === "weapon";
-      this.add.rectangle(w / 2, y, w - 24, 46, 0x141218).setStrokeStyle(1, owned ? 0x1e5a32 : 0x3a3428);
-      this.add.text(24, y - 8, slot.toUpperCase(), { fontFamily: TITLE, fontSize: "13px", color: "#efeae0" }).setOrigin(0, 0.5);
-      const share = slot === "offset" ? "small extra haste" : `${Math.round(SHARE[slot] * 100)}% of this tier`;
-      this.add.text(24, y + 10, share, { fontFamily: FONT, fontSize: "11px", color: "#8a8680" }).setOrigin(0, 0.5);
-      const label = owned ? "OWNED" : needsMark ? `${cost} + mark` : `${cost} marks`;
-      const b = this.add.rectangle(w - 78, y, 120, 30, owned ? 0x14301c : 0x2a2214)
+      const needsMark = t === 12 && slot === "mainhand";
+      this.add.rectangle(x, y, colW - 8, rh - 6, 0x141218).setStrokeStyle(1, owned ? 0x1e5a32 : 0x3a3428);
+      this.add.text(x - colW / 2 + 10, y - 7, SLOT_NAME[slot].toUpperCase(), {
+        fontFamily: TITLE, fontSize: "10px", color: "#efeae0",
+      }).setOrigin(0, 0.5);
+      const pct = (SHARE[slot] * 100).toFixed(1).replace(/\.0$/, "");
+      this.add.text(x - colW / 2 + 10, y + 8, `${pct}% haste`, {
+        fontFamily: FONT, fontSize: "10px", color: "#8a8680",
+      }).setOrigin(0, 0.5);
+      const label = owned ? "OWNED" : needsMark ? `${cost}+` : `${cost}`;
+      const b = this.add.rectangle(x + colW / 2 - 36, y, 52, 24, owned ? 0x14301c : 0x2a2214)
         .setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
-      this.add.text(w - 78, y, label, { fontFamily: FONT, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
+      this.add.text(x + colW / 2 - 36, y, label, { fontFamily: FONT, fontSize: "10px", color: "#e8d59a" }).setOrigin(0.5);
       if (!owned) b.on("pointerup", () => { this.toast(buyPiece(t, slot)); this.time.delayedCall(280, () => this.scene.restart({ tier: t })); });
     });
 
@@ -287,6 +300,61 @@ class VendorScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
     }).setOrigin(0.5).setDepth(5);
     this.time.delayedCall(900, () => t.destroy());
+  }
+}
+
+class GearScene extends Phaser.Scene {
+  constructor() { super("gear"); }
+  init(data) { this.back = data.back || "mall"; this.tier = data.tier; this.room = data.room; }
+  create() {
+    const { width: w, height: h } = this.scale;
+    this.cameras.main.setBackgroundColor(0x07060a);
+    const bg = this.add.image(w / 2, h / 2, "mallbg");
+    bg.setScale(Math.max(w / bg.width, h / bg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.78).setOrigin(0);
+    this.add.text(w / 2, 14, "GEAR", { fontFamily: TITLE, fontSize: "22px", color: "#e8d59a" }).setOrigin(0.5, 0);
+    const s = compute();
+    this.add.text(w / 2, 42, `${(s.haste * 100).toFixed(0)}% haste   ·   ${s.swing.toFixed(2)}s swing   ·   hit ${s.hit}`, {
+      fontFamily: FONT, fontSize: "12px", color: "#7ee0e6",
+    }).setOrigin(0.5, 0);
+    const cols = w > h ? 4 : 2;
+    const rows = Math.ceil(SLOTS.length / cols);
+    const top = 68;
+    const rh = Math.min(44, (h - 120) / rows);
+    const colW = (w - 16) / cols;
+    SLOTS.forEach((slot, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = 8 + col * colW + colW / 2;
+      const y = top + row * rh + rh / 2;
+      const it = itemOf(profile.equipped[slot]);
+      const worn = it ? `T${it.tier} ${TIERS[it.tier].name}` : "Empty";
+      const card = this.add.rectangle(x, y, colW - 8, rh - 5, 0x141218)
+        .setStrokeStyle(1, 0xc4a15a, 0.45).setInteractive({ useHandCursor: true });
+      this.add.text(x - colW / 2 + 10, y - 7, SLOT_NAME[slot].toUpperCase(), {
+        fontFamily: TITLE, fontSize: "10px", color: "#f0ead8",
+      }).setOrigin(0, 0.5);
+      this.add.text(x - colW / 2 + 10, y + 8, worn, {
+        fontFamily: FONT, fontSize: "11px", color: "#7ee0e6",
+      }).setOrigin(0, 0.5);
+      card.on("pointerup", () => { this.toast(wearNext(slot)); this.time.delayedCall(180, () => this.scene.restart(this.scene.settings.data)); });
+    });
+    this.btn(w * 0.28, h - 28, "BEST", () => { equipBest(); this.scene.restart(this.scene.settings.data); });
+    this.btn(w * 0.72, h - 28, "BACK", () => {
+      if (this.back === "dungeon") this.scene.start("dungeon", { tier: this.tier || 1, room: this.room || 0 });
+      else this.scene.start("mall");
+    });
+  }
+  btn(x, y, label, fn) {
+    const r = this.add.rectangle(x, y, 120, 36, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
+    this.add.text(x, y, label, { fontFamily: TITLE, fontSize: "13px", color: "#e8d59a" }).setOrigin(0.5);
+    r.on("pointerup", fn);
+  }
+  toast(msg) {
+    const t = this.add.text(this.scale.width / 2, 60, msg, {
+      fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
+    }).setOrigin(0.5).setDepth(5);
+    this.time.delayedCall(700, () => t.destroy());
   }
 }
 

@@ -4,12 +4,12 @@ class DungeonScene extends Phaser.Scene {
     this.tier = data.tier || 1;
     this.forge = !!data.forge;
     this.world = !!data.world;
+    this.roomIndex = data.room || 0;
   }
   create() {
     bootTextures(this);
     const T = TIERS[this.tier];
     this.roomsTotal = this.world ? 1 : this.forge ? 3 : T.rooms;
-    this.roomIndex = 0;
     this.checkpoint = 0;
     this.enrageAt = 0;
     const s = compute();
@@ -81,9 +81,12 @@ class DungeonScene extends Phaser.Scene {
     this.bossFill = this.add.rectangle(0, 0, 10, 8, 0x8c1c16).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22).setVisible(false);
     this.bossFrame = this.add.rectangle(0, 0, 10, 14).setStrokeStyle(1, 0xd4b56a, 0.8).setScrollFactor(0).setDepth(23).setVisible(false);
     this.bossName = this.add.text(0, 0, "", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(24).setVisible(false);
-    this.mallBtn = this.add.rectangle(0, 0, 72, 28, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
+    this.mallBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
     this.mallLabel = this.add.text(0, 0, "HALL", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
     this.mallBtn.on("pointerup", () => this.scene.start("mall"));
+    this.gearBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
+    this.gearLabel = this.add.text(0, 0, "GEAR", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
+    this.gearBtn.on("pointerup", () => this.scene.start("gear", { back: "dungeon", tier: this.tier, room: this.roomIndex }));
     this.mpBg = this.add.rectangle(0, 0, 10, 6, 0x0c1824).setScrollFactor(0).setDepth(21);
     this.mpFg = this.add.rectangle(0, 0, 10, 6, 0x3ec6e0).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22);
     this.skillSlots = [0, 1, 2, 3].map((i) => {
@@ -127,8 +130,10 @@ class DungeonScene extends Phaser.Scene {
   fitHud() {
     const { w, h } = this.view();
     const bw = this._barW();
-    this.mallBtn.setPosition(w - 48, h - 108);
-    this.mallLabel.setPosition(w - 48, h - 108);
+    this.mallBtn.setPosition(w - 40, h - 108);
+    this.mallLabel.setPosition(w - 40, h - 108);
+    this.gearBtn.setPosition(w - 110, h - 108);
+    this.gearLabel.setPosition(w - 110, h - 108);
     const barY = h - 36;
     this.hpBg.setPosition(w / 2, barY).setSize(bw, 14);
     this.hpGhost.setPosition(w / 2 - bw / 2, barY).setSize(bw, 14);
