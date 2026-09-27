@@ -172,7 +172,7 @@ class DungeonScene extends Phaser.Scene {
     const ix = w * (land ? 0.08 : 0.11);
     const iy = h * 0.13;
     this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
-    this.roomArt.setTexture(land ? "roomL" : "roomP");
+    this.roomArt.setTexture("floorimg");
     this.roomArt.setPosition(w / 2, h / 2);
     this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
     this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
@@ -234,7 +234,7 @@ class DungeonScene extends Phaser.Scene {
         const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
         const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.92);
-        const want = (p.kind === "boss" ? 0.34 : p.kind === "elite" ? 0.22 : 0.16) * h;
+        const want = (p.kind === "boss" ? 0.24 : p.kind === "elite" ? 0.13 : 0.085) * h;
         const sc = want / sprite.height;
         sprite.setScale(sc);
         sprite.body.setImmovable(true);
@@ -478,6 +478,7 @@ class DungeonScene extends Phaser.Scene {
   swingBlade(ang) {
     if (this.bladeTween) this.bladeTween.stop();
     const state = { a: ang - 1.7 };
+    this.bladeSwinging = true;
     this.bladeAngle = state.a;
     this.bladeTween = this.tweens.add({
       targets: state,
@@ -492,6 +493,7 @@ class DungeonScene extends Phaser.Scene {
           duration: 180,
           ease: "Sine.easeOut",
           onUpdate: () => { this.bladeAngle = state.a; },
+          onComplete: () => { this.bladeSwinging = false; },
         });
       },
     });
@@ -517,12 +519,14 @@ class DungeonScene extends Phaser.Scene {
       this.bladeEdge = this.add.rectangle(0, 0, 2, 58, 0xe7c56a).setOrigin(0.5, 0.08).setDepth(8);
       this.bladeAngle = 0.7;
     }
-    const handY = this.player.y - this.player.displayHeight * 0.38;
     const side = this.player.flipX ? -1 : 1;
-    const x = this.player.x + side * this.player.displayWidth * 0.12;
-    const len = Math.max(28, this.player.displayHeight * 0.78);
-    this.blade.setPosition(x, handY).setRotation(this.bladeAngle).setDisplaySize(Math.max(3, len * 0.07), len);
-    this.bladeEdge.setPosition(x, handY).setRotation(this.bladeAngle).setDisplaySize(Math.max(1.5, len * 0.025), len * 0.92);
+    const x = this.player.x + side * this.player.displayWidth * 0.34;
+    const handY = this.player.y - this.player.displayHeight * 0.62;
+    const len = Math.max(22, this.player.displayHeight * 0.7);
+    let ang = this.bladeAngle;
+    if (!this.bladeSwinging && this.player.flipX) ang = Math.PI - this.bladeAngle;
+    this.blade.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(2, len * 0.06), len);
+    this.bladeEdge.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(1, len * 0.02), len * 0.9);
   }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
