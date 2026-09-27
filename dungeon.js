@@ -254,27 +254,38 @@ class DungeonScene extends Phaser.Scene {
     this.strikeUntil = this.time.now + 110;
     this.player.setFlipX(Math.cos(ang) < 0);
     this.player.setVelocity(Math.cos(ang) * 220, Math.sin(ang) * 220);
-    this.tweens.add({ targets: this.player, rotation: ang * 0.25, duration: 70, yoyo: true });
+    this.tweens.add({ targets: this.player, rotation: ang * 0.35, duration: 80, yoyo: true });
+    const ghost = this.add.sprite(this.player.x, this.player.y, "hero", 0)
+      .setScale(this.player.scaleX, this.player.scaleY).setFlipX(this.player.flipX)
+      .setAlpha(0.4).setTint(0xffe2a0).setDepth(5).setOrigin(0.5, 0.9);
+    this.tweens.add({ targets: ghost, alpha: 0, x: this.player.x - Math.cos(ang) * 16, duration: 160, onComplete: () => ghost.destroy() });
     const arc = { t: 0 };
     const g = this.add.graphics().setDepth(9);
     this.tweens.add({
-      targets: arc, t: 1, duration: 150,
+      targets: arc, t: 1, duration: 160,
       onUpdate: () => {
         g.clear();
-        g.lineStyle(4, 0xfff1c4, 0.85 * (1 - arc.t));
-        const a = ang - 1.2 + arc.t * 2.4;
+        const a = ang - 1.35 + arc.t * 2.5;
+        g.lineStyle(10, 0xfff6d0, 0.28 * (1 - arc.t));
         g.beginPath();
-        g.arc(this.player.x, this.player.y - 28, 58, a, a + 0.85, false);
+        g.arc(this.player.x, this.player.y - 30, 62, a, a + 1.05, false);
+        g.strokePath();
+        g.lineStyle(3, 0xffffff, 0.9 * (1 - arc.t));
+        g.beginPath();
+        g.arc(this.player.x, this.player.y - 30, 54, a + 0.15, a + 0.85, false);
         g.strokePath();
       },
       onComplete: () => g.destroy(),
     });
-    this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, 8);
-    this.floatText(best.sprite.x, best.sprite.y - 22, `${s.hit}`, "#ffe27a");
-    this.skillSlots[0].slot.setScale(1.18);
-    this.tweens.add({ targets: this.skillSlots[0].slot, scale: 1, duration: 120 });
-    this.cameras.main.shake(best.hp <= 0 ? 140 : 70, best.hp <= 0 ? 0.007 : 0.003);
-    tone(180 + Math.min(900, s.dps), 0.05);
+    const ring = this.add.circle(best.sprite.x, best.sprite.y - 8, 6).setStrokeStyle(3, 0xfff1c4, 0.9).setDepth(9);
+    this.tweens.add({ targets: ring, scale: 4.2, alpha: 0, duration: 180, onComplete: () => ring.destroy() });
+    this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, best.hp <= 0 ? 22 : 12);
+    this.floatText(best.sprite.x, best.sprite.y - 28, `${s.hit}`, best.hp <= 0 ? "#fff6d0" : "#ffe27a");
+    this.skillSlots[0].slot.setScale(1.22);
+    this.tweens.add({ targets: this.skillSlots[0].slot, scale: 1, duration: 140 });
+    this.cameras.main.shake(best.hp <= 0 ? 160 : 80, best.hp <= 0 ? 0.008 : 0.004);
+    sfx("swing");
+    sfx(best.hp <= 0 ? "kill" : "hit");
     best.sprite.setTint(0xffffff);
     this.tweens.add({
       targets: best.sprite,
@@ -342,6 +353,12 @@ class DungeonScene extends Phaser.Scene {
         const bob = Math.sin(this.time.now / 90) * 0.035;
         this.player.setScale(this.heroScale + bob, this.heroScale - bob * 0.6);
         this.player.setRotation(vx * 0.12);
+        if (this.time.now > (this.nextStep || 0)) {
+          this.nextStep = this.time.now + 280;
+          sfx("step");
+          const puff = this.add.circle(this.player.x, this.player.y + 2, 5, 0xd8cbb4, 0.35).setDepth(4);
+          this.tweens.add({ targets: puff, y: puff.y - 12, alpha: 0, scale: 2.2, duration: 260, onComplete: () => puff.destroy() });
+        }
       } else {
         const breathe = 1 + Math.sin(this.time.now / 420) * 0.015;
         this.player.setScale(this.heroScale * breathe, this.heroScale * (2 - breathe));
@@ -419,6 +436,7 @@ class DungeonScene extends Phaser.Scene {
       if (!alive && !this.doorOpen) {
         this.doorOpen = true;
         this.door.setFillStyle(0xffc070, 0.8);
+        sfx("door");
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
         if (this.roomIndex === this.roomsTotal - 1) {
           if (this.forge) {
@@ -485,7 +503,10 @@ class DungeonScene extends Phaser.Scene {
     const ratio = Math.max(0, this.hp / this.maxHp);
     this.shownHp += (this.hp - this.shownHp) * Math.min(1, dt * 10);
     this.ghostHp += (this.hp - this.ghostHp) * Math.min(1, dt * 2.2);
-    if (this.hp < (this._prevHp ?? this.hp) - 0.4) this.cameras.main.flash(90, 120, 16, 12);
+    if (this.hp < (this._prevHp ?? this.hp) - 0.4) {
+      this.cameras.main.flash(90, 120, 16, 12);
+      sfx("hurt");
+    }
     this._prevHp = this.hp;
     this.hpFg.width = bw * Math.max(0, this.shownHp / this.maxHp);
     this.hpGhost.width = bw * Math.max(0, this.ghostHp / this.maxHp);

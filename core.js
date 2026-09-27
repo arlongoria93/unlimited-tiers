@@ -218,22 +218,71 @@ function dropPiece(tier, src) {
   return msg;
 }
 
-function tone(freq, dur) {
+function actx() {
   const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) return;
-  const ctx = tone.ctx || (tone.ctx = new AC());
-  if (ctx.state === "suspended") ctx.resume();
-  const o = ctx.createOscillator();
-  const g = ctx.createGain();
-  o.type = "square";
-  o.frequency.value = freq;
-  g.gain.value = 0.025;
-  o.connect(g);
-  g.connect(ctx.destination);
-  o.start();
-  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-  o.stop(ctx.currentTime + dur);
+  if (!AC) return null;
+  if (!actx.ctx) actx.ctx = new AC();
+  if (actx.ctx.state === "suspended") actx.ctx.resume();
+  return actx.ctx;
 }
+function burst(ctx, dur, peak, filterFreq, type) {
+  const now = ctx.currentTime;
+  const len = Math.max(0.02, dur);
+  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * len), ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = type || "lowpass";
+  filter.frequency.setValueAtTime(filterFreq, now);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(peak, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + len);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(now);
+  src.stop(now + len);
+}
+function blip(ctx, from, to, dur, peak, type) {
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type || "sine";
+  osc.frequency.setValueAtTime(Math.max(40, from), now);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(40, to), now + dur);
+  gain.gain.setValueAtTime(peak, now);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + dur + 0.02);
+}
+function sfx(kind) {
+  const ctx = actx();
+  if (!ctx) return;
+  if (kind === "swing") {
+    burst(ctx, 0.12, 0.05, 2200, "bandpass");
+    blip(ctx, 640, 180, 0.09, 0.03, "sawtooth");
+  } else if (kind === "hit") {
+    burst(ctx, 0.08, 0.09, 900, "lowpass");
+    blip(ctx, 220, 70, 0.08, 0.06, "triangle");
+  } else if (kind === "kill") {
+    burst(ctx, 0.16, 0.08, 1400, "lowpass");
+    blip(ctx, 520, 880, 0.12, 0.04, "triangle");
+    blip(ctx, 180, 60, 0.18, 0.05, "sine");
+  } else if (kind === "hurt") {
+    burst(ctx, 0.1, 0.06, 500, "lowpass");
+    blip(ctx, 160, 70, 0.12, 0.05, "sawtooth");
+  } else if (kind === "step") {
+    burst(ctx, 0.04, 0.025, 280, "lowpass");
+  } else if (kind === "door") {
+    blip(ctx, 140, 60, 0.28, 0.05, "sine");
+    burst(ctx, 0.22, 0.04, 400, "lowpass");
+  }
+}
+function tone() { sfx("hit"); }
 function makeTex(scene, key, w, h, draw) {
   const g = scene.make.graphics({ add: false });
   draw(g);
