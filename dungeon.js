@@ -31,7 +31,7 @@ class DungeonScene extends Phaser.Scene {
     this.walls = this.physics.add.staticGroup();
     this.door = null;
     this.player = this.physics.add.sprite(0, 0, "hero").setDepth(6).setOrigin(0.5, 0.92);
-    this.heroScale = Math.max(0.05, (this.scale.height * 0.17) / this.player.height);
+    this.heroScale = Math.max(0.05, (this.scale.height * 0.22) / this.player.height);
     this.player.setScale(this.heroScale);
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
     this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
@@ -152,9 +152,9 @@ class DungeonScene extends Phaser.Scene {
   drawVignette() {
     const { w, h } = this.view();
     this.vignette.clear();
-    this.vignette.fillStyle(0x000000, 0.55);
-    this.vignette.fillRect(0, 0, w, 18);
-    this.vignette.fillRect(0, h - 18, w, 18);
+    this.vignette.fillStyle(0x000000, 0.28);
+    this.vignette.fillRect(0, 0, w, 10);
+    this.vignette.fillRect(0, h - 10, w, 10);
     for (let i = 0; i < 5; i++) {
       this.vignette.fillStyle(0x000000, 0.07);
       const t = 10 + i * 14;
@@ -175,7 +175,7 @@ class DungeonScene extends Phaser.Scene {
     this.roomArt.setTexture(land ? "roomL" : "roomP");
     this.roomArt.setPosition(w / 2, h / 2);
     this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
-    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x04060c, 0.34);
+    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
     this.walls.clear(true, true);
     this.mobs.forEach((m) => {
       m.sprite.destroy();
@@ -193,16 +193,16 @@ class DungeonScene extends Phaser.Scene {
     });
     this.door = this.add.rectangle(w / 2, iy + 8, Math.min(120, w * 0.28), 22, 0xffc070, this.doorOpen ? 0.75 : 0).setDepth(3);
     if (this.gloom) this.gloom.destroy();
-    this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x03040a, 0.22).setDepth(2);
+    this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0).setDepth(2);
     if (this.lamps) this.lamps.forEach((lamp) => lamp.destroy());
     this.lamps = [];
     const spots = land
       ? [[0.13, 0.34], [0.13, 0.7], [0.87, 0.34], [0.87, 0.7]]
       : [[0.17, 0.28], [0.17, 0.64], [0.83, 0.3], [0.83, 0.66]];
     spots.forEach(([sx, sy], i) => {
-      const lamp = this.add.image(w * sx, h * sy, "glow").setBlendMode(Phaser.BlendModes.ADD).setDepth(3).setAlpha(0.5);
-      lamp.setScale(Math.max(1.1, w / 280));
-      this.tweens.add({ targets: lamp, alpha: { from: 0.32, to: 0.62 }, duration: 380 + i * 90, yoyo: true, repeat: -1 });
+      const lamp = this.add.image(w * sx, h * sy, "glow").setBlendMode(Phaser.BlendModes.ADD).setDepth(3).setAlpha(0.22);
+      lamp.setScale(Math.max(0.7, w / 520));
+      this.tweens.add({ targets: lamp, alpha: { from: 0.14, to: 0.26 }, duration: 380 + i * 90, yoyo: true, repeat: -1 });
       this.lamps.push(lamp);
     });
 
@@ -234,7 +234,7 @@ class DungeonScene extends Phaser.Scene {
         const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
         const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.92);
-        const want = (p.kind === "boss" ? 0.28 : p.kind === "elite" ? 0.18 : 0.13) * h;
+        const want = (p.kind === "boss" ? 0.34 : p.kind === "elite" ? 0.22 : 0.16) * h;
         const sc = want / sprite.height;
         sprite.setScale(sc);
         sprite.body.setImmovable(true);
