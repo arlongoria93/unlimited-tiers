@@ -25,13 +25,13 @@ class DungeonScene extends Phaser.Scene {
     this._fitLock = false;
 
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.floorLayer = null;
-    this.roomArt = this.add.image(0, 0, "floorA").setVisible(false).setDepth(0);
+    this.floorLayer = this.add.tileSprite(0, 0, 64, 64, "floorimg").setOrigin(0).setDepth(0).setVisible(false);
+    this.roomArt = this.add.image(0, 0, "roomP").setDepth(0);
     this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.94);
-    this.heroScale = Math.max(0.45, (this.scale.height * 0.2) / this.player.height);
+    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.92);
+    this.heroScale = Math.max(0.04, (this.scale.height * 0.13) / this.player.height);
     this.player.setScale(this.heroScale);
     this.player.play(this.heroSet().idle);
     this.gearGlow = this.add.circle(0, 0, 22, 0xffcc88, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
@@ -195,27 +195,14 @@ class DungeonScene extends Phaser.Scene {
     const land = w > h;
     const ix = w * (land ? 0.08 : 0.11);
     const iy = h * 0.13;
-    this.physics.world.setBounds(8, 8, w - 16, h - 16);
-    if (this.roomArt) this.roomArt.setVisible(false);
-    if (this.ground) this.ground.setVisible(false);
-    if (this.groundLip) this.groundLip.setVisible(false);
+    this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
+    const key = this.textures.exists("tier" + this.tier) ? "tier" + this.tier : (land ? "roomL" : "roomP");
+    this.roomArt.setTexture(key);
+    this.roomArt.setPosition(w / 2, h / 2);
+    const cover = Math.max(w / this.roomArt.width, h / this.roomArt.height);
+    this.roomCover = cover * 1.08;
+    this.roomArt.setScale(this.roomCover);
     this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
-    if (!this.tileLayer) this.tileLayer = this.add.group();
-    this.tileLayer.clear(true, true);
-    const ts = Math.max(26, Math.floor(Math.min(w, h) / 11));
-    this.tile = ts;
-    const cols = Math.ceil(w / ts);
-    const rows = Math.ceil(h / ts);
-    const floorKey = ["floorA", "floorB", "floorC"][this.tier % 3];
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const edge = x === 0 || y === 0 || x === cols - 1 || y === rows - 1;
-        const doorGap = y === 0 && Math.abs(x - Math.floor(cols / 2)) <= 0;
-        const key = doorGap ? "doorTile" : edge ? "wallTile" : floorKey;
-        const img = this.add.image(x * ts + ts / 2, y * ts + ts / 2, key).setDisplaySize(ts + 1, ts + 1).setDepth(0);
-        this.tileLayer.add(img);
-      }
-    }
     this.walls.clear(true, true);
     this.mobs.forEach((m) => {
       m.sprite.destroy();
@@ -225,7 +212,13 @@ class DungeonScene extends Phaser.Scene {
     });
     this.mobs = [];
     if (this.door) this.door.destroy();
-    this.door = this.add.rectangle(w / 2, ts * 0.5, ts, ts, 0xffc070, this.doorOpen ? 0.45 : 0).setDepth(2);
+
+    const last = this.roomIndex === this.roomsTotal - 1;
+    [[w / 2, iy * 0.45, w, iy], [w / 2, h - 36, w, 72], [ix * 0.45, h / 2, ix, h], [w - ix * 0.45, h / 2, ix, h]].forEach((wall) => {
+      const piece = this.walls.create(wall[0], wall[1], "wallpx");
+      piece.setDisplaySize(wall[2], wall[3]).setVisible(false).refreshBody();
+    });
+    this.door = this.add.rectangle(w / 2, iy + 8, Math.min(120, w * 0.28), 22, 0xffc070, this.doorOpen ? 0.75 : 0).setDepth(3);
     if (this.gloom) this.gloom.destroy();
     this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0).setDepth(2);
     if (this.lamps) this.lamps.forEach((lamp) => lamp.destroy());
@@ -240,23 +233,26 @@ class DungeonScene extends Phaser.Scene {
       );
     }
 
-    const last = this.roomIndex === this.roomsTotal - 1;
     const packs = [];
     if (this.world || last) {
-      packs.push({ kind: "boss", x: w * 0.5, y: h * 0.34, n: 1 });
-    } else {
+      packs.push({ kind: "boss", x: w * 0.5, y: land ? h * 0.42 : h * 0.36, n: 1 });
+    } else if (land) {
       packs.push({ kind: "trash", x: w * 0.32, y: h * 0.42, n: 2 });
-      packs.push({ kind: "trash", x: w * 0.68, y: h * 0.36, n: this.tier >= 5 ? 2 : 1 });
+      packs.push({ kind: "trash", x: w * 0.7, y: h * 0.38, n: this.tier >= 5 ? 2 : 1 });
       if (this.tier >= 9 && this.roomIndex % 2 === 1) packs.push({ kind: "elite", x: w * 0.5, y: h * 0.28, n: 1 });
+    } else {
+      packs.push({ kind: "trash", x: w * 0.34, y: h * 0.46, n: 2 });
+      packs.push({ kind: "trash", x: w * 0.68, y: h * 0.34, n: this.tier >= 5 ? 2 : 1 });
+      if (this.tier >= 9 && this.roomIndex % 2 === 1) packs.push({ kind: "elite", x: w * 0.5, y: h * 0.24, n: 1 });
     }
 
     packs.forEach((p) => {
       for (let i = 0; i < p.n; i++) {
-        const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 46, w * 0.34, w * 0.82);
-        const y = Phaser.Math.Clamp(p.y, h * 0.24, h * 0.58);
+        const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 36, w * 0.24, w * 0.76);
+        const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
-        const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.82);
-        const want = (p.kind === "boss" ? 0.2 : p.kind === "elite" ? 0.14 : 0.1) * h;
+        const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.92);
+        const want = (p.kind === "boss" ? 0.24 : p.kind === "elite" ? 0.13 : 0.085) * h;
         const sc = want / sprite.height;
         sprite.setScale(sc);
         sprite.play(tex + "-move");
@@ -587,6 +583,9 @@ class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - 36, scale: 1.15, alpha: 0, duration: 520, ease: "Cubic.easeOut", onComplete: () => t.destroy() });
   }
   heroSet() {
+    const id = profile.classId || "ironblade";
+    if (id === "spellweave") return { idle: "weave-idle", walk: "weave-walk", attack: "weave-attack" };
+    if (id === "shadestep") return { idle: "shade-idle", walk: "shade-idle", attack: "shade-attack" };
     return { idle: "hero-idle", walk: "hero-walk", attack: "hero-attack" };
   }
   openPanel(title, body, buttons) {
@@ -649,44 +648,6 @@ class DungeonScene extends Phaser.Scene {
     this.toast(msg);
     if (profile.owned.includes(`T${this.tier}_${miss.slot}`)) this.recover();
   }
-  paintVeil() {
-    const { w, h } = this.view();
-    if (w < 40 || h < 40 || !this.player) return;
-    if (!this.veil || this.veilW !== w || this.veilH !== h) {
-      if (this.textures.exists("veil")) this.textures.remove("veil");
-      this.textures.createCanvas("veil", Math.floor(w), Math.floor(h));
-      this.veilW = w;
-      this.veilH = h;
-      if (this.veil) this.veil.destroy();
-      this.veil = this.add.image(0, 0, "veil").setOrigin(0).setDepth(16);
-    }
-    const canvas = this.textures.get("veil");
-    const ctx = canvas.getContext();
-    const px = this.player.x;
-    const py = this.player.y;
-    const rad = Math.min(w, h) * 0.33;
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "rgba(2,1,1,0.97)";
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = "destination-out";
-    const hole = ctx.createRadialGradient(px, py, rad * 0.08, px, py, rad);
-    hole.addColorStop(0, "rgba(0,0,0,1)");
-    hole.addColorStop(0.62, "rgba(0,0,0,0.55)");
-    hole.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = hole;
-    ctx.beginPath();
-    ctx.arc(px, py, rad, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalCompositeOperation = "source-over";
-    const ember = ctx.createRadialGradient(px, py, 8, px, py, rad * 0.42);
-    ember.addColorStop(0, "rgba(120,48,16,0.22)");
-    ember.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = ember;
-    ctx.beginPath();
-    ctx.arc(px, py, rad * 0.42, 0, Math.PI * 2);
-    ctx.fill();
-    canvas.refresh();
-  }
   update(_, dtMs) {
     if (this.paused) return;
     const dt = Math.min(0.05, dtMs / 1000);
@@ -708,16 +669,16 @@ class DungeonScene extends Phaser.Scene {
           tx = m.sprite.x;
           ty = m.sprite.y;
           found = true;
-          if ((profile.classId || "") === "spellweave") stop = 110;
-          else stop = Math.max(28, (m.pull || 70) * 0.55);
+          if ((profile.classId || "") === "spellweave") stop = Math.min(h * 0.34, 280);
+          else stop = Math.max(18, (m.pull || 70) * 0.45);
         }
       }
       if (!found && this.doorOpen) {
         tx = w / 2;
-        ty = this.tile * 0.4;
+        ty = h * 0.12;
         best = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
         found = true;
-        stop = 8;
+        stop = 6;
       }
       if (found && best > stop) {
         vx = (tx - this.player.x) / Math.max(1, best);
@@ -726,7 +687,7 @@ class DungeonScene extends Phaser.Scene {
         vx = (this.player.x - tx) / Math.max(1, best);
         vy = (this.player.y - ty) / Math.max(1, best);
       }
-      if (found && best < ((profile.classId || "") === "spellweave" ? 140 : Math.max(180, this.player.displayHeight * 2))) {
+      if (found && best < Math.max(220, this.player.displayHeight * 2)) {
         const cls = classOf();
         cls.skills.forEach((sk, i) => {
           if ((this.cds[sk.id] || 0) <= this.time.now) this.castSkill(i);
@@ -736,13 +697,7 @@ class DungeonScene extends Phaser.Scene {
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { vx /= mag; vy /= mag; }
     const striking = this.time.now < this.strikeUntil;
-    if (!striking) this.player.setVelocity(vx * 210, vy * 210);
-    else this.player.setVelocity(0, 0);
-    const pad = (this.tile || 32) * 0.95;
-    const doorTop = this.doorOpen && Math.abs(this.player.x - w / 2) < (this.tile || 32) * 1.6;
-    this.player.x = Phaser.Math.Clamp(this.player.x, pad, w - pad);
-    this.player.y = Phaser.Math.Clamp(this.player.y, doorTop ? 6 : pad, h - pad);
-    this.paintVeil();
+    if (!striking) this.player.setVelocity(vx * 250, vy * 250);
     if (!striking) {
       if (vx) this.player.setFlipX(vx < 0);
       this.player.setScale(this.heroScale);
@@ -767,12 +722,14 @@ class DungeonScene extends Phaser.Scene {
       this.gearGlow.setFillStyle(TIERS[hand?.tier || 0].color, Math.min(0.4, 0.08 + owned / 28));
       this.gearGlow.setScale(0.8 + owned / 10);
     }
-    if (this.roomArt) this.roomArt.setVisible(false);
+    const ox = (this.player.x - w / 2) * 0.08;
+    const oy = (this.player.y - h * 0.48) * 0.06;
+    this.roomArt.setPosition(w / 2 - ox, h / 2 - oy);
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
     const ranged = (profile.classId || "") === "spellweave";
-    const reach = ranged ? 130 : Math.max(170, this.player.displayHeight * 1.8);
+    const reach = ranged ? Math.max(w, h) * 0.78 : Math.max(170, this.player.displayHeight * 1.8);
     const hurt = 26;
 
     for (const m of this.mobs) {
@@ -786,7 +743,6 @@ class DungeonScene extends Phaser.Scene {
       m.bar.setVisible(overhead).setPosition(m.sprite.x - (m.barW || 30) / 2, head);
       if (m.shadow) m.shadow.setPosition(m.sprite.x, m.sprite.y + 6);
       m.sprite.setDepth(5 + m.sprite.y * 0.01);
-      m.sprite.setFlipX(px > m.sprite.x);
       m.bar.width = (m.barW || 30) * Math.max(0, m.hp / m.max);
       if (m.state === "idle") {
         if (m.kind === "boss") this.poseBoss(m, d);
@@ -807,7 +763,7 @@ class DungeonScene extends Phaser.Scene {
           m.sprite.clearTint();
           continue;
         }
-        const gap = (this.player.displayWidth + m.sprite.displayWidth) * 0.42;
+        const gap = (this.player.displayHeight + m.sprite.displayHeight) * 0.38;
         if (m.slamming) m.sprite.setVelocity(0, 0);
         else if (d < gap && d > 2) {
           const a = Math.atan2(m.sprite.y - py, m.sprite.x - px);
@@ -871,7 +827,8 @@ class DungeonScene extends Phaser.Scene {
           }
         } else this.toast("Room clear — walk through the door");
       }
-      if (this.doorOpen && py < (this.tile || 32) * 1.3 && Math.abs(px - w / 2) < (this.tile || 32) * 1.8) {
+      const doorLine = profile.auto ? h * 0.46 : h * 0.3;
+      if (this.doorOpen && py < doorLine) {
         this.advancing = true;
         this.doorOpen = false;
         this.player.setVelocity(0, 0);

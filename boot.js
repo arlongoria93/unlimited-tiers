@@ -2,18 +2,24 @@ class BootScene extends Phaser.Scene {
   constructor() { super("boot"); }
   preload() {
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=38", { frameWidth: 230, frameHeight: 196 });
-    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=38", { frameWidth: 230, frameHeight: 196 });
-    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=38", { frameWidth: 230, frameHeight: 196 });
-    this.load.spritesheet("hound", "assets/td/hound-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("knight", "assets/td/knight-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("titan", "assets/td/titan-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
-    this.load.image("floorA", "assets/td/floor.png?v=37");
-    this.load.image("floorB", "assets/td/floor2.png?v=37");
-    this.load.image("floorC", "assets/td/floor3.png?v=37");
-    this.load.image("wallTile", "assets/td/wall.png?v=37");
-    this.load.image("doorTile", "assets/td/door.png?v=37");
-    this.load.image("mallbg", "assets/td/hall.jpg?v=37");
+    this.load.spritesheet("heroIdle", "assets/hero-idle.png?v=21", { frameWidth: 447, frameHeight: 362 });
+    this.load.spritesheet("heroWalk", "assets/hero-walk.png?v=21", { frameWidth: 447, frameHeight: 362 });
+    this.load.spritesheet("heroAttack", "assets/hero-attack.png?v=28", { frameWidth: 454, frameHeight: 345 });
+    this.load.spritesheet("weaveWalk", "assets/weave-walk.png?v=28", { frameWidth: 301, frameHeight: 424 });
+    this.load.spritesheet("weaveAttack", "assets/weave-attack.png?v=28", { frameWidth: 444, frameHeight: 371 });
+    this.load.spritesheet("shadeAttack", "assets/shade-attack.png?v=28", { frameWidth: 435, frameHeight: 338 });
+    for (let t = 1; t <= 16; t++) this.load.image("tier" + t, `assets/rooms/t${t}.jpg?v=28`);
+    this.load.spritesheet("hound", "assets/hound.png?v=21", { frameWidth: 336, frameHeight: 312 });
+    this.load.spritesheet("knight", "assets/knight.png?v=21", { frameWidth: 434, frameHeight: 377 });
+    this.load.spritesheet("titan", "assets/titan.png?v=21", { frameWidth: 439, frameHeight: 443 });
+    this.load.image("doorimg", "assets/door.png");
+    this.load.image("torchimg", "assets/torch.png");
+    this.load.image("floorimg", "assets/floor.jpg?v=22");
+    this.load.image("roomP", "assets/room-portrait.jpg?v=22");
+    this.load.image("roomL", "assets/room-land.jpg?v=22");
+    this.load.image("debris", "assets/debris.png");
+    this.load.image("glow", "assets/glow.png");
+    this.load.image("mallbg", "assets/mall.jpg?v=22");
   }
   create() {
     const clip = (key, tex, rate, repeat) => {
@@ -26,13 +32,15 @@ class BootScene extends Phaser.Scene {
     };
     clip("hero-idle", "heroIdle", 6, -1);
     clip("hero-walk", "heroWalk", 12, -1);
-    clip("hero-attack", "heroAttack", 10, 0);
+    clip("hero-attack", "heroAttack", 14, 0);
+    clip("weave-walk", "weaveWalk", 10, -1);
+    clip("weave-attack", "weaveAttack", 12, 0);
+    clip("shade-attack", "shadeAttack", 12, 0);
+    this.anims.create({ key: "weave-idle", frames: [{ key: "weaveWalk", frame: 0 }], frameRate: 1, repeat: -1 });
+    this.anims.create({ key: "shade-idle", frames: [{ key: "shadeAttack", frame: 0 }], frameRate: 1, repeat: -1 });
     clip("hound-move", "hound", 10, -1);
     clip("knight-move", "knight", 10, -1);
     clip("titan-move", "titan", 8, -1);
-    ["heroIdle", "heroWalk", "heroAttack", "hound", "knight", "titan", "floorA", "floorB", "floorC", "wallTile", "doorTile", "mallbg"].forEach((key) => {
-      if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    });
     this.scene.start("mall");
   }
 }
@@ -49,5 +57,5 @@ new Phaser.Game({
   physics: { default: "arcade", arcade: { debug: false } },
   scene: [BootScene, MallScene, DungeonScene, ShopScene, VendorScene, ForgeScene, BoardScene, ClassScene, GearScene],
   audio: { noAudio: true },
-  render: { antialias: false, pixelArt: true, roundPixels: true },
+  render: { antialias: true, pixelArt: false, roundPixels: false },
 });
