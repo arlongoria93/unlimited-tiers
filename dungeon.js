@@ -88,6 +88,14 @@ class DungeonScene extends Phaser.Scene {
     this.gearBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
     this.gearLabel = this.add.text(0, 0, "GEAR", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
     this.gearBtn.on("pointerup", () => this.scene.start("gear", { back: "dungeon", tier: this.tier, room: this.roomIndex }));
+    this.autoBtn = this.add.rectangle(0, 0, 64, 26, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
+    this.autoLabel = this.add.text(0, 0, "AUTO", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
+    this.autoBtn.on("pointerup", () => {
+      profile.auto = !profile.auto;
+      persist();
+      this.paintAuto();
+    });
+    this.paintAuto();
     this.mpBg = this.add.rectangle(0, 0, 10, 6, 0x0c1824).setScrollFactor(0).setDepth(21);
     this.mpFg = this.add.rectangle(0, 0, 10, 6, 0x3ec6e0).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22);
     this.skillSlots = [0, 1, 2, 3].map((i) => {
@@ -135,6 +143,8 @@ class DungeonScene extends Phaser.Scene {
     this.mallLabel.setPosition(w - 40, h - 108);
     this.gearBtn.setPosition(w - 110, h - 108);
     this.gearLabel.setPosition(w - 110, h - 108);
+    this.autoBtn.setPosition(w - 180, h - 108);
+    this.autoLabel.setPosition(w - 180, h - 108);
     const barY = h - 36;
     this.hpBg.setPosition(w / 2, barY).setSize(bw, 14);
     this.hpGhost.setPosition(w / 2 - bw / 2, barY).setSize(bw, 14);
@@ -544,6 +554,12 @@ class DungeonScene extends Phaser.Scene {
     this.blade.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(2, len * 0.06), len);
     this.bladeEdge.setPosition(x, handY).setRotation(ang).setDisplaySize(Math.max(1, len * 0.02), len * 0.9);
   }
+  paintAuto() {
+    const on = !!profile.auto;
+    this.autoBtn.setFillStyle(on ? 0x3a2412 : 0x16120c);
+    this.autoLabel.setColor(on ? "#f0d080" : "#e8d59a");
+    this.autoLabel.setText(on ? "AUTO" : "AUTO");
+  }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
       fontFamily: FONT, fontSize: "14px", color: "#e8d59a", backgroundColor: "#140e08", padding: { x: 12, y: 7 },
@@ -634,6 +650,26 @@ class DungeonScene extends Phaser.Scene {
     if (this.keys.D.isDown || this.keys.RIGHT.isDown) vx += 1;
     if (this.keys.W.isDown || this.keys.UP.isDown) vy -= 1;
     if (this.keys.S.isDown || this.keys.DOWN.isDown) vy += 1;
+    const mag0 = Math.hypot(vx, vy);
+    if (profile.auto && mag0 < 0.2) {
+      let tx = 0, ty = 0, best = 1e9, found = false;
+      for (const m of this.mobs) {
+        if (m.hp <= 0) continue;
+        const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
+        if (d < best) { best = d; tx = m.sprite.x; ty = m.sprite.y; found = true; }
+      }
+      if (!found && this.doorOpen) { tx = w / 2; ty = h * 0.16; found = true; best = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty); }
+      if (found && best > 78) {
+        vx = (tx - this.player.x) / best;
+        vy = (ty - this.player.y) / best;
+      }
+      if (found && best < 220) {
+        const cls = classOf();
+        cls.skills.forEach((sk, i) => {
+          if ((this.cds[sk.id] || 0) <= this.time.now) this.castSkill(i);
+        });
+      }
+    }
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { vx /= mag; vy /= mag; }
     const striking = this.time.now < this.strikeUntil;
