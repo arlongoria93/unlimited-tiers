@@ -71,10 +71,34 @@ function blankProfile() {
     equipped: { weapon: "T0_weapon", armor: "T0_armor", ring: "T0_ring", trinket: "T0_trinket" },
     owned: ["T0_weapon", "T0_armor", "T0_ring", "T0_trinket"],
     attuned: { 0: true, 1: true }, pity: {}, slotLock: 0, luckRuns: 0, lastDaily: 0,
+    marks: {},
   };
 }
 let profile = Object.assign(blankProfile(), JSON.parse(localStorage.getItem("ut_phaser") || "{}"));
 const persist = () => localStorage.setItem("ut_phaser", JSON.stringify(profile));
+
+function markCost(tier, slot) {
+  const base = { weapon: 48, armor: 28, ring: 16, trinket: 16 }[slot] || 16;
+  return base * tier;
+}
+function marksOf(tier) {
+  return (profile.marks && profile.marks[tier]) || 0;
+}
+function addMarks(tier, n) {
+  profile.marks = profile.marks || {};
+  profile.marks[tier] = marksOf(tier) + n;
+  persist();
+}
+function buyPiece(tier, slot) {
+  const id = `T${tier}_${slot}`;
+  if (profile.owned.includes(id)) return "Already owned";
+  const cost = markCost(tier, slot);
+  if (marksOf(tier) < cost) return `Need ${cost - marksOf(tier)} more`;
+  profile.marks[tier] -= cost;
+  profile.owned.push(id);
+  persist();
+  return `Bought T${tier} ${slot}`;
+}
 
 function highestWeapon() {
   let b = 0;
