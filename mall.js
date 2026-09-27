@@ -4,6 +4,7 @@ class MallScene extends Phaser.Scene {
     const { width: w, height: h } = this.scale;
     bootTextures(this);
     this.cameras.main.setBackgroundColor(0x07060a);
+
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x140e08, 0x140e08, 0x07060a, 0x07060a, 1);
     bg.fillRect(0, 0, w, h);
@@ -12,27 +13,38 @@ class MallScene extends Phaser.Scene {
       this.add.circle(x, y, Phaser.Math.Between(1, 2), 0xd4b56a, 0.15);
     }
     this.add.rectangle(w / 2, 0, w, 6, 0xd4b56a).setOrigin(0.5, 0).setAlpha(0.7);
-    this.add.text(w / 2, 28, "UNLIMITED", {
-      fontFamily: TITLE, fontSize: Math.min(34, w * 0.09) + "px", color: "#e8d59a", fontStyle: "800",
+
+    const land = w > h;
+    this.add.text(w / 2, land ? 10 : 22, "UNLIMITED", {
+      fontFamily: TITLE, fontSize: Math.min(land ? 26 : 34, w * 0.08) + "px", color: "#e8d59a",
     }).setOrigin(0.5, 0);
-    this.add.text(w / 2, 64, "T I E R S", {
-      fontFamily: TITLE, fontSize: "13px", color: "#7ee0e6",
+    this.add.text(w / 2, land ? 38 : 58, "T I E R S", {
+      fontFamily: TITLE, fontSize: "12px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
+
     const s = compute();
-    this.add.text(w / 2, 92, `Haste  ${(s.haste * 100).toFixed(0)}%    Swing  ${s.swing.toFixed(2)}s    Med  ${profile.medallions}`, {
+    this.add.text(w / 2, land ? 56 : 82, `Haste ${(s.haste * 100).toFixed(0)}%   Swing ${s.swing.toFixed(2)}s   Med ${profile.medallions}`, {
       fontFamily: FONT, fontSize: "13px", color: "#c8c4b8",
     }).setOrigin(0.5, 0);
-    const cols = 4, pad = 10, top = 122;
-    const bw = (w - pad * 5) / cols, bh = 64;
+
+    const cols = land ? 8 : 4;
+    const pad = 8;
+    const top = land ? 82 : 112;
+    const rowCount = Math.ceil(16 / cols);
+    const bh = Math.max(46, Math.min(64, (h - top - 58 - pad * rowCount) / rowCount));
+    const bw = (w - pad * (cols + 1)) / cols;
     for (let t = 1; t <= 16; t++) {
       const col = (t - 1) % cols, row = Math.floor((t - 1) / cols);
       const x = pad + col * (bw + pad) + bw / 2;
-      const y = top + row * (bh + 8) + bh / 2;
+      const y = top + row * (bh + pad) + bh / 2;
       const locked = !profile.attuned[t] && highestWeapon() < (t === 9 ? 7 : t - 1) && profile.medallions < 20 * t;
       const card = this.add.rectangle(x, y, bw, bh, locked ? 0x121018 : 0x16141c)
         .setStrokeStyle(2, TIERS[t].color, locked ? 0.25 : 0.9)
         .setInteractive({ useHandCursor: true });
-      if (!locked) this.add.rectangle(x, y, bw + 6, bh + 6, TIERS[t].color, 0.07).setDepth(card.depth - 1);
+      if (!locked) {
+        const glow = this.add.rectangle(x, y, bw + 6, bh + 6, TIERS[t].color, 0.07);
+        glow.setDepth(card.depth - 1);
+      }
       this.add.text(x, y - 12, `T${t}`, { fontFamily: TITLE, fontSize: "15px", color: locked ? "#555" : "#f0ead8" }).setOrigin(0.5);
       this.add.text(x, y + 8, TIERS[t].name, { fontFamily: FONT, fontSize: "11px", color: locked ? "#555" : "#9aa8a8" }).setOrigin(0.5);
       this.add.text(x, y + 22, profile.attuned[t] ? "OPEN" : locked ? "SEALED" : "ATTUNE", {
@@ -42,9 +54,11 @@ class MallScene extends Phaser.Scene {
       card.on("pointerout", () => card.setFillStyle(locked ? 0x121018 : 0x16141c));
       card.on("pointerup", () => this.enter(t, locked));
     }
-    this.btn(w * 0.18, h - 34, "SHOP", () => this.scene.start("shop"));
-    this.btn(w * 0.5, h - 34, "DAILIES", () => this.dailies());
-    this.btn(w * 0.82, h - 34, "EQUIP BEST", () => this.equipBest());
+
+    this.btn(w * 0.18, h - 28, "SHOP", () => this.scene.start("shop"));
+    this.btn(w * 0.5, h - 28, "DAILIES", () => this.dailies());
+    this.btn(w * 0.82, h - 28, "EQUIP BEST", () => this.equipBest());
+    this.scale.on("resize", () => this.scene.restart());
   }
   btn(x, y, label, fn) {
     const r = this.add.rectangle(x, y, 108, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
@@ -107,7 +121,7 @@ class ShopScene extends Phaser.Scene {
     });
     const rows = [
       ["Fate Roll", "1 Fate or 40 Med", () => this.roll()],
-      ["Slot Lock x3", "80 Med", () => this.buy(80, () => { profile.slotLock = 3; }, "Lock armed")],
+      ["Slot Lock ×3", "80 Med", () => this.buy(80, () => { profile.slotLock = 3; }, "Lock armed")],
       ["Luck Flask", "25 Med", () => this.buy(25, () => { profile.luckRuns = 1; }, "Flask sipped")],
       ["3 Fate Stones", "100 Med", () => this.buy(100, () => { profile.fate += 3; }, "+3 Fate")],
       ["VIP  +5% haste", "200 Med", () => this.vip()],
@@ -123,6 +137,7 @@ class ShopScene extends Phaser.Scene {
     const back = this.add.rectangle(w / 2, h - 34, 150, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive();
     this.add.text(w / 2, h - 34, "MALL", { fontFamily: TITLE, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
     back.on("pointerup", () => this.scene.start("mall"));
+    this.scale.on("resize", () => this.scene.restart());
   }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 88, msg, {
@@ -148,3 +163,4 @@ class ShopScene extends Phaser.Scene {
     this.time.delayedCall(600, () => this.scene.restart());
   }
 }
+
