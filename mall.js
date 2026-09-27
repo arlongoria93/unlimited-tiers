@@ -38,9 +38,9 @@ class MallScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
 
     const s = compute();
-    this.add.text(w / 2, land ? 56 : 82, `Haste ${(s.haste * 100).toFixed(0)}%   Swing ${s.swing.toFixed(2)}s   Med ${profile.medallions}`, {
+    this.add.text(w / 2, land ? 56 : 82, `Haste ${(s.haste * 100).toFixed(0)}%   Swing ${s.swing.toFixed(2)}s   Med ${profile.medallions}   SHOP`, {
       fontFamily: FONT, fontSize: "13px", color: "#c8c4b8",
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5, 0).setInteractive({ useHandCursor: true }).on("pointerup", () => this.scene.start("shop"));
 
     const cols = land ? 8 : 4;
     const pad = 8;
@@ -175,11 +175,13 @@ class ShopScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x07060a);
     this.add.rectangle(w / 2, 0, w, 6, 0xd4b56a).setOrigin(0.5, 0);
     this.add.text(w / 2, 24, "FORTUNE DESK", { fontFamily: TITLE, fontSize: "22px", color: "#e8d59a" }).setOrigin(0.5, 0);
-    this.add.text(w / 2, 54, "Extra marks for the tier you are on. Never the piece itself.", {
-      fontFamily: FONT, fontSize: "12px", color: "#8a8680", wordWrap: { width: w - 40 },
+    this.add.text(w / 2, 54, "Grind the marks, or spend medallions on the piece you are short.", {
+      fontFamily: FONT, fontSize: "12px", color: "#8a8680", wordWrap: { width: w - 40 }, align: "center",
     }).setOrigin(0.5, 0);
-    this.add.text(20, 80, `Med ${profile.medallions}    Fate ${profile.fate}${profile.vip ? "    VIP" : ""}`, {
-      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
+    const s = compute();
+    const vipSwing = swingTime(s.haste + (profile.vip ? 0 : 0.05));
+    this.add.text(20, 78, `Med ${profile.medallions}    Fate ${profile.fate}${profile.vip ? "    VIP" : `    VIP would swing ${vipSwing.toFixed(2)}s`}`, {
+      fontFamily: FONT, fontSize: "12px", color: "#7ee0e6",
     });
     const rows = [
       ["Fate Roll", "1 Fate or 40 Med", () => this.roll()],
@@ -278,11 +280,13 @@ class VendorScene extends Phaser.Scene {
       this.add.text(x - colW / 2 + 10, y + 8, `${pct}% haste`, {
         fontFamily: FONT, fontSize: "10px", color: "#8a8680",
       }).setOrigin(0, 0.5);
-      const label = owned ? "OWNED" : needsMark ? `${cost}+` : `${cost}`;
-      const b = this.add.rectangle(x + colW / 2 - 36, y, 52, 24, owned ? 0x14301c : 0x2a2214)
-        .setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
+      const gap = Math.max(0, cost - marksOf(t));
+      const med = gap * medPerMark(t);
+      const label = owned ? "OWNED" : gap === 0 ? `${cost}` : `${med} MED`;
+      const b = this.add.rectangle(x + colW / 2 - 36, y, 52, 24, owned ? 0x14301c : gap ? 0x3a2412 : 0x2a2214)
+        .setStrokeStyle(1, gap && !owned ? 0xf0d080 : 0xd4b56a, 0.7).setInteractive({ useHandCursor: true });
       this.add.text(x + colW / 2 - 36, y, label, { fontFamily: FONT, fontSize: "10px", color: "#e8d59a" }).setOrigin(0.5);
-      if (!owned) b.on("pointerup", () => { this.toast(buyPiece(t, slot)); this.time.delayedCall(280, () => this.scene.restart({ tier: t })); });
+      if (!owned) b.on("pointerup", () => { this.toast(coverPiece(t, slot)); this.time.delayedCall(280, () => this.scene.restart({ tier: t })); });
     });
 
     this.btn(w * 0.22, h - 28, "PREV", () => this.scene.restart({ tier: Math.max(1, t - 1) }));

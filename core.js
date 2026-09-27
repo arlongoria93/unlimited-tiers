@@ -192,6 +192,23 @@ function addMarks(tier, n) {
   profile.marks[tier] = marksOf(tier) + n;
   persist();
 }
+function medPerMark(tier) {
+  return tier <= 4 ? 2 : tier <= 8 ? 3 : 4;
+}
+function coverPiece(tier, slot) {
+  const id = `T${tier}_${slot}`;
+  if (profile.owned.includes(id)) return "Already owned";
+  if (!slotsFor(tier).includes(slot)) return "Not sold here";
+  if (tier === 12 && slot === "mainhand" && !(profile.upgradeMarks > 0)) return "Need an Upgrade Mark from the Titan boss";
+  const gap = Math.max(0, markCost(tier, slot) - marksOf(tier));
+  if (gap > 0) {
+    const med = gap * medPerMark(tier);
+    if ((profile.medallions || 0) < med) return `Short ${gap} marks, or ${med} medallions`;
+    profile.medallions -= med;
+    addMarks(tier, gap);
+  }
+  return buyPiece(tier, slot);
+}
 function buyPiece(tier, slot) {
   const id = `T${tier}_${slot}`;
   if (profile.owned.includes(id)) return "Already owned";
