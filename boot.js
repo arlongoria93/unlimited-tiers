@@ -2,21 +2,18 @@ class BootScene extends Phaser.Scene {
   constructor() { super("boot"); }
   preload() {
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.load.spritesheet("heroIdle", "assets/hero-idle.png?v=33", { frameWidth: 151, frameHeight: 140 });
-    this.load.spritesheet("heroWalk", "assets/hero-walk.png?v=33", { frameWidth: 151, frameHeight: 140 });
-    this.load.spritesheet("heroAttack", "assets/hero-attack.png?v=33", { frameWidth: 176, frameHeight: 140 });
-    for (let t = 1; t <= 16; t++) this.load.image("tier" + t, `assets/rooms/t${t}.jpg?v=28`);
-    this.load.spritesheet("hound", "assets/hound.png?v=33", { frameWidth: 254, frameHeight: 140 });
-    this.load.spritesheet("knight", "assets/knight.png?v=33", { frameWidth: 151, frameHeight: 140 });
-    this.load.spritesheet("titan", "assets/titan.png?v=33", { frameWidth: 117, frameHeight: 140 });
-    this.load.image("doorimg", "assets/door.png");
-    this.load.image("torchimg", "assets/torch.png");
-    this.load.image("floorimg", "assets/floor.jpg?v=22");
-    this.load.image("roomP", "assets/room-portrait.jpg?v=22");
-    this.load.image("roomL", "assets/room-land.jpg?v=22");
-    this.load.image("debris", "assets/debris.png");
-    this.load.image("glow", "assets/glow.png");
-    this.load.image("mallbg", "assets/mall.jpg?v=22");
+    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("hound", "assets/td/hound-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("knight", "assets/td/knight-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("titan", "assets/td/titan-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
+    this.load.image("floorA", "assets/td/floor.png?v=36");
+    this.load.image("floorB", "assets/td/floor2.png?v=36");
+    this.load.image("floorC", "assets/td/floor3.png?v=36");
+    this.load.image("wallTile", "assets/td/wall.png?v=36");
+    this.load.image("doorTile", "assets/td/door.png?v=36");
+    this.load.image("mallbg", "assets/td/hall.jpg?v=36");
   }
   create() {
     const clip = (key, tex, rate, repeat) => {
@@ -33,7 +30,7 @@ class BootScene extends Phaser.Scene {
     clip("hound-move", "hound", 10, -1);
     clip("knight-move", "knight", 10, -1);
     clip("titan-move", "titan", 8, -1);
-    ["heroIdle", "heroWalk", "heroAttack", "hound", "knight", "titan"].forEach((key) => {
+    ["heroIdle", "heroWalk", "heroAttack", "hound", "knight", "titan", "floorA", "floorB", "floorC", "wallTile", "doorTile", "mallbg"].forEach((key) => {
       if (this.textures.exists(key)) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     });
     this.scene.start("mall");
@@ -52,5 +49,5 @@ new Phaser.Game({
   physics: { default: "arcade", arcade: { debug: false } },
   scene: [BootScene, MallScene, DungeonScene, ShopScene, VendorScene, ForgeScene, BoardScene, ClassScene, GearScene],
   audio: { noAudio: true },
-  render: { antialias: true, pixelArt: false, roundPixels: false },
+  render: { antialias: false, pixelArt: true, roundPixels: true },
 });

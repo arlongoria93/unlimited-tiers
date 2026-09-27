@@ -1,12 +1,12 @@
-const CACHE = "unlimited-tiers-v34";
+const CACHE = "unlimited-tiers-v36";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.json",
   "./core.js?v=32",
   "./mall.js?v=27",
-  "./dungeon.js?v=34",
-  "./boot.js?v=33",
+  "./dungeon.js?v=36",
+  "./boot.js?v=36",
   "./icon-192.png",
   "./icon-512.png",
   "./apple-touch-icon.png",
