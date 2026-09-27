@@ -14,6 +14,8 @@ class DungeonScene extends Phaser.Scene {
     this.nextSwing = 0;
     this.stick = { ax: 0, ay: 0, down: false, sx: 0, sy: 0 };
     this.doorOpen = false;
+    this.advancing = false;
+    this.travelId = 0;
     this.torches = [];
     this.mobs = [];
     this._fitLock = false;
@@ -200,6 +202,7 @@ class DungeonScene extends Phaser.Scene {
     this.enrageAt = last && this.tier >= 13 ? this.time.now + (this.tier === 16 ? 180000 : 140000) : 0;
     this.hint.setText(`${T.inst}   ${this.roomIndex + 1} / ${this.roomsTotal}`);
     this.fitHud();
+    this.advancing = false;
     this._fitLock = false;
   }
   toast(msg) {
@@ -306,29 +309,42 @@ class DungeonScene extends Phaser.Scene {
 
     if (this.enrageAt && this.time.now > this.enrageAt) this.hp -= 40 * dt;
 
-    const alive = this.mobs.some((m) => m.hp > 0);
-    if (!alive && !this.doorOpen) {
-      this.doorOpen = true;
-      this.door.setFillStyle(0x1e5a32);
-      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
-      if (this.roomIndex === this.roomsTotal - 1) {
-        profile.currentTier = Math.max(profile.currentTier, this.tier);
-        const nxt = this.tier === 8 ? 9 : this.tier + 1;
-        if (nxt <= 16 && highestWeapon() >= (nxt === 9 ? 7 : this.tier)) profile.attuned[nxt] = true;
-        persist();
-        this.toast(`${marksOf(this.tier)} ${TIERS[this.tier].name} Marks — buy the set at the vendor`);
-      } else this.toast("Room clear — walk through the door");
-    }
-    if (this.doorOpen && py < 64) {
-      if (this.roomIndex < this.roomsTotal - 1) {
-        this.roomIndex++;
+    if (!this.advancing) {
+      const alive = this.mobs.some((m) => m.hp > 0);
+      if (!alive && !this.doorOpen) {
+        this.doorOpen = true;
+        this.door.setFillStyle(0x1e5a32);
+        this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
+        if (this.roomIndex === this.roomsTotal - 1) {
+          profile.currentTier = Math.max(profile.currentTier, this.tier);
+          const nxt = this.tier === 8 ? 9 : this.tier + 1;
+          if (nxt <= 16 && highestWeapon() >= (nxt === 9 ? 7 : this.tier)) profile.attuned[nxt] = true;
+          persist();
+          this.toast(`${marksOf(this.tier)} ${TIERS[this.tier].name} Marks — buy the set at the vendor`);
+        } else this.toast("Room clear — walk through the door");
+      }
+      if (this.doorOpen && py < 90) {
+        this.advancing = true;
         this.doorOpen = false;
-        if (this.roomIndex % 3 === 0) this.checkpoint = this.roomIndex;
-        this.cameras.main.fadeOut(100, 7, 6, 10);
-        this.time.delayedCall(100, () => { this.buildRoom(false); this.cameras.main.fadeIn(140, 7, 6, 10); });
-      } else {
-        this.toast(TIERS[this.tier].inst + " falls");
-        this.time.delayedCall(450, () => this.scene.start("mall"));
+        this.player.setVelocity(0, 0);
+        if (this.roomIndex < this.roomsTotal - 1) {
+          this.roomIndex++;
+          if (this.roomIndex % 3 === 0) this.checkpoint = this.roomIndex;
+          this.cameras.main.fadeOut(100, 7, 6, 10);
+          const trip = ++this.travelId;
+          this.time.delayedCall(100, () => {
+            if (trip !== this.travelId) return;
+            this.buildRoom(false);
+            this.cameras.main.fadeIn(140, 7, 6, 10);
+          });
+        } else {
+          this.toast(TIERS[this.tier].inst + " falls");
+          const trip = ++this.travelId;
+          this.time.delayedCall(450, () => {
+            if (trip !== this.travelId) return;
+            this.scene.start("mall");
+          });
+        }
       }
     }
     if (this.hp <= 0) {
