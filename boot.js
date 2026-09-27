@@ -8,9 +8,9 @@ class BootScene extends Phaser.Scene {
     this.load.image("titan", "assets/titan.png");
     this.load.image("doorimg", "assets/door.png");
     this.load.image("torchimg", "assets/torch.png");
-    this.load.image("floorimg", "assets/floor.jpg");
-    this.load.image("roomP", "assets/room-portrait.jpg");
-    this.load.image("roomL", "assets/room-land.jpg");
+    this.load.image("floorimg", "assets/floor.jpg?v=20");
+    this.load.image("roomP", "assets/floor.jpg?v=20");
+    this.load.image("roomL", "assets/floor.jpg?v=20");
     this.load.image("debris", "assets/debris.png");
     this.load.image("glow", "assets/glow.png");
     this.load.image("mallbg", "assets/mall.jpg");

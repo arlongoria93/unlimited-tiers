@@ -483,7 +483,7 @@ class DungeonScene extends Phaser.Scene {
     this.bladeTween = this.tweens.add({
       targets: state,
       a: ang + 1.15,
-      duration: 150,
+      duration: 260,
       ease: "Cubic.easeOut",
       onUpdate: () => { this.bladeAngle = state.a; },
       onComplete: () => {
@@ -500,7 +500,7 @@ class DungeonScene extends Phaser.Scene {
     const g = this.add.graphics().setDepth(8);
     const arc = { t: 0 };
     this.tweens.add({
-      targets: arc, t: 1, duration: 150,
+      targets: arc, t: 1, duration: 260,
       onUpdate: () => {
         g.clear();
         const a = ang - 1.5 + arc.t * 2.4;
@@ -515,8 +515,8 @@ class DungeonScene extends Phaser.Scene {
   }
   placeBlade() {
     if (!this.blade) {
-      this.blade = this.add.rectangle(0, 0, 6, 64, 0xf4f1ea).setOrigin(0.5, 0.12).setDepth(7);
-      this.bladeEdge = this.add.rectangle(0, 0, 2, 58, 0xe7c56a).setOrigin(0.5, 0.08).setDepth(8);
+      this.blade = this.add.rectangle(0, 0, 6, 64, 0xf4f1ea).setOrigin(0.5, 0.12).setDepth(12);
+      this.bladeEdge = this.add.rectangle(0, 0, 2, 58, 0xe7c56a).setOrigin(0.5, 0.08).setDepth(13);
       this.bladeAngle = 0.7;
     }
     const side = this.player.flipX ? -1 : 1;
@@ -568,7 +568,7 @@ class DungeonScene extends Phaser.Scene {
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
-    const reach = 78;
+    const reach = 150;
     const hurt = 26;
 
     for (const m of this.mobs) {
@@ -601,11 +601,16 @@ class DungeonScene extends Phaser.Scene {
           m.sprite.clearTint();
           continue;
         }
+        const gap = (this.player.displayHeight + m.sprite.displayHeight) * 0.38;
         if (m.slamming) m.sprite.setVelocity(0, 0);
-        else if (d > hurt + 8) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
+        else if (d < gap && d > 2) {
+          const a = Math.atan2(m.sprite.y - py, m.sprite.x - px);
+          m.sprite.setPosition(px + Math.cos(a) * gap, py + Math.sin(a) * gap);
+          m.sprite.setVelocity(0, 0);
+        } else if (d > gap + 4) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
         else m.sprite.setVelocity(0, 0);
         if (m.kind === "boss") this.poseBoss(m, d);
-        if (d <= hurt) {
+        if (d <= gap + 10) {
           const kindMult = m.kind === "boss" ? 1.5 : m.kind === "elite" ? 1.2 : 1;
           let taken = (2.1 + this.tier * 0.38) * kindMult * dt;
           if (this.guardUntil > this.time.now) taken *= 0.35;
