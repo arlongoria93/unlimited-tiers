@@ -31,7 +31,8 @@ class MallScene extends Phaser.Scene {
     const pad = 8;
     const top = land ? 82 : 112;
     const rowCount = Math.ceil(16 / cols);
-    const bh = Math.max(46, Math.min(64, (h - top - 58 - pad * rowCount) / rowCount));
+    const footer = 150;
+    const bh = Math.max(40, Math.min(56, (h - top - footer - pad * rowCount) / rowCount));
     const bw = (w - pad * (cols + 1)) / cols;
     for (let t = 1; t <= 16; t++) {
       const col = (t - 1) % cols, row = Math.floor((t - 1) / cols);
@@ -60,14 +61,14 @@ class MallScene extends Phaser.Scene {
     this.btn(w * 0.82, h - 28, "EQUIP BEST", () => this.equipBest());
 
     const s0 = compute();
-    this.formula = this.add.text(w / 2, h - 108, "swing = max(0.20, 1 / (1 + haste))", {
+    this.formula = this.add.text(16, h - 118, "swing = max(0.20,  1 / (1 + haste))", {
       fontFamily: FONT, fontSize: "11px", color: "#8a8680",
-    }).setOrigin(0.5);
-    this.feelReadout = this.add.text(w / 2, h - 90, "", {
-      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
-    }).setOrigin(0.5);
-    this.dummy = this.add.circle(w - 36, h - 150, 22, 0x3a2418).setStrokeStyle(2, 0xd4b56a);
-    this.add.text(w - 36, h - 150, "DUMMY", { fontFamily: FONT, fontSize: "8px", color: "#e8d59a" }).setOrigin(0.5);
+    }).setOrigin(0, 0.5);
+    this.feelReadout = this.add.text(16, h - 100, "", {
+      fontFamily: FONT, fontSize: "12px", color: "#7ee0e6",
+    }).setOrigin(0, 0.5);
+    this.dummy = this.add.circle(w - 28, h - 108, 16, 0x3a2418).setStrokeStyle(2, 0xd4b56a);
+    this.add.text(w - 28, h - 108, "HIT", { fontFamily: FONT, fontSize: "8px", color: "#e8d59a" }).setOrigin(0.5);
     this.nextSwingAt = 0;
     this.paintFeel(s0);
 
@@ -87,8 +88,8 @@ class MallScene extends Phaser.Scene {
     this.scale.on("resize", () => this.scene.restart());
   }
   paintFeel(s) {
-    const tag = s.preview == null ? "your gear" : `preview T${s.preview} full set`;
-    this.feelReadout.setText(`${tag}   ${(s.haste * 100).toFixed(0)}% haste   ${s.swing.toFixed(2)}s   hit ${s.hit}   ${s.dps.toFixed(0)} dps`);
+    const tag = s.preview == null ? "your gear" : `T${s.preview} set`;
+    this.feelReadout.setText(`${tag}   ${(s.haste * 100).toFixed(0)}%   ${s.swing.toFixed(2)}s   hit ${s.hit}`);
   }
   btn(x, y, label, fn) {
     const r = this.add.rectangle(x, y, 108, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
