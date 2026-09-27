@@ -182,7 +182,9 @@ class DungeonScene extends Phaser.Scene {
     this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
     this.roomArt.setTexture(land ? "roomL" : "roomP");
     this.roomArt.setPosition(w / 2, h / 2);
-    this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
+    const cover = Math.max(w / this.roomArt.width, h / this.roomArt.height);
+    this.roomCover = cover * 1.08;
+    this.roomArt.setScale(this.roomCover);
     this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
     this.walls.clear(true, true);
     this.mobs.forEach((m) => {
@@ -573,6 +575,9 @@ class DungeonScene extends Phaser.Scene {
       }
     }
     this.player.setDepth(6 + this.player.y * 0.01);
+    const ox = (this.player.x - w / 2) * 0.08;
+    const oy = (this.player.y - h * 0.48) * 0.06;
+    this.roomArt.setPosition(w / 2 - ox, h / 2 - oy);
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
