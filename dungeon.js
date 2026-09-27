@@ -168,14 +168,6 @@ class DungeonScene extends Phaser.Scene {
       this.tweens.add({ targets: lamp, alpha: { from: 0.32, to: 0.62 }, duration: 380 + i * 90, yoyo: true, repeat: -1 });
       this.lamps.push(lamp);
     });
-    if (this.props) this.props.forEach((p) => { p.img.destroy(); p.shadow.destroy(); });
-    this.props = [];
-    const places = land ? [[0.24, 0.74, 0.2], [0.76, 0.28, -0.4], [0.78, 0.76, 0.5]] : [[0.3, 0.76, 0.15], [0.72, 0.74, -0.35]];
-    places.forEach(([px, py, rot]) => {
-      const img = this.add.image(w * px, h * py, "debris").setDepth(4).setScale(land ? 0.22 : 0.32).setRotation(rot);
-      const shadow = this.add.ellipse(w * px, h * py + 10, img.displayWidth * 0.7, 16, 0x000000, 0.4).setDepth(3);
-      this.props.push({ img, shadow });
-    });
 
     const spawn = { x: w / 2, y: h * 0.72 };
     if (!keepPlayer) this.player.setPosition(spawn.x, spawn.y);

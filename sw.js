@@ -1,11 +1,11 @@
-const CACHE = "unlimited-tiers-v10";
+const CACHE = "unlimited-tiers-v11";
 const SHELL = [
   "./",
   "./index.html",
   "./manifest.json",
   "./core.js?v=10",
   "./mall.js?v=10",
-  "./dungeon.js?v=10",
+  "./dungeon.js?v=11",
   "./boot.js?v=10",
   "./icon-192.png",
   "./icon-512.png",
