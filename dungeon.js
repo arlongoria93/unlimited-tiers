@@ -25,11 +25,12 @@ class DungeonScene extends Phaser.Scene {
     this._fitLock = false;
 
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.floorLayer = this.add.tileSprite(0, 0, 64, 64, "floorimg").setOrigin(0).setDepth(0);
-    this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.28).setOrigin(0).setDepth(0);
+    this.floorLayer = this.add.tileSprite(0, 0, 64, 64, "floorimg").setOrigin(0).setDepth(0).setVisible(false);
+    this.roomArt = this.add.image(0, 0, "roomP").setDepth(0);
+    this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "hero", 0).setDepth(6).setOrigin(0.5, 0.88).setScale(0.3);
+    this.player = this.physics.add.sprite(0, 0, "hero", 0).setDepth(6).setOrigin(0.5, 0.88).setScale(0.24);
     this.player.play("hero-idle");
     this.player.body.setSize(70, 40);
     this.player.body.setOffset(61, 175);
@@ -102,40 +103,33 @@ class DungeonScene extends Phaser.Scene {
     if (w < 40 || h < 40) return;
     const T = TIERS[this.tier];
     this._fitLock = true;
-    this.physics.world.setBounds(0, 0, w, h);
-    this.floorLayer.setPosition(0, 0).setSize(w, h);
-    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(T.floor, 0.22);
+    const land = w > h;
+    const ix = w * (land ? 0.08 : 0.11);
+    const iy = h * 0.13;
+    this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
+    this.roomArt.setTexture(land ? "roomL" : "roomP");
+    this.roomArt.setPosition(w / 2, h / 2);
+    this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
+    this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(T.floor, 0.1);
     this.walls.clear(true, true);
     this.mobs.forEach((m) => {
       m.sprite.destroy();
       if (m.ring) m.ring.destroy();
+      if (m.shadow) m.shadow.destroy();
       if (m.bar) m.bar.destroy();
       if (m.barBg) m.barBg.destroy();
     });
     this.mobs = [];
     if (this.door) this.door.destroy();
-    this.torches.forEach((t) => t.destroy());
-    this.torches = [];
 
     const last = this.roomIndex === this.roomsTotal - 1;
-    const land = w > h;
-    [[w / 2, 14, w, 28], [w / 2, h - 14, w, 28], [14, h / 2, 28, h], [w - 14, h / 2, 28, h]].forEach((wall) => {
+    [[w / 2, iy * 0.45, w, iy], [w / 2, h - 36, w, 72], [ix * 0.45, h / 2, ix, h], [w - ix * 0.45, h / 2, ix, h]].forEach((wall) => {
       const piece = this.walls.create(wall[0], wall[1], "wallpx");
-      piece.setDisplaySize(wall[2], wall[3]).setTint(T.floor).refreshBody();
+      piece.setDisplaySize(wall[2], wall[3]).setVisible(false).refreshBody();
     });
-    this.door = this.add.image(w / 2, 92, "doorimg").setOrigin(0.5, 0.75).setScale(0.38).setDepth(3);
-    if (!this.doorOpen) this.door.setTint(0x6a3030);
-    else this.door.clearTint();
+    this.door = this.add.rectangle(w / 2, iy + 8, Math.min(120, w * 0.28), 22, 0xffc070, this.doorOpen ? 0.75 : 0).setDepth(3);
 
-    const margin = 48;
-    [[margin, 96], [w - margin, 96], [margin, h - 96], [w - margin, h - 96]].forEach((p) => {
-      if (p[0] < 20 || p[1] < 80 || p[1] > h - 40) return;
-      const torch = this.add.image(p[0], p[1], "torchimg").setOrigin(0.5, 0.85).setScale(0.55).setDepth(2);
-      this.tweens.add({ targets: torch, scale: { from: 0.95, to: 1.12 }, duration: 380, yoyo: true, repeat: -1 });
-      this.torches.push(torch);
-    });
-
-    const spawn = { x: w / 2, y: h - 78 };
+    const spawn = { x: w / 2, y: h * 0.72 };
     if (!keepPlayer) this.player.setPosition(spawn.x, spawn.y);
     else {
       this.player.setPosition(
@@ -159,21 +153,21 @@ class DungeonScene extends Phaser.Scene {
 
     packs.forEach((p) => {
       for (let i = 0; i < p.n; i++) {
-        const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 40, 50, w - 50);
-        const y = Phaser.Math.Clamp(p.y + (i % 2) * 14, 110, h - 120);
+        const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 36, w * 0.24, w * 0.76);
+        const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
-        const sc = p.kind === "boss" ? 0.46 : p.kind === "elite" ? 0.34 : 0.3;
+        const sc = p.kind === "boss" ? 0.34 : p.kind === "elite" ? 0.26 : 0.22;
         const sprite = this.physics.add.sprite(x, y, tex, 0).setDepth(5).setOrigin(0.5, 0.88).setScale(sc);
         sprite.play(tex + "-idle");
         sprite.body.setImmovable(true);
-        const pull = p.kind === "boss" ? Math.min(130, w * 0.22) : Math.min(84, w * 0.16);
-        const ring = this.add.ellipse(x, y + 8, pull * 1.5, pull * 0.55).setStrokeStyle(2, T.color, 0.45).setDepth(1);
-        this.tweens.add({ targets: ring, alpha: { from: 0.35, to: 0.85 }, duration: 900, yoyo: true, repeat: -1 });
+        const pull = p.kind === "boss" ? Math.min(120, w * 0.2) : Math.min(78, w * 0.15);
+        const shadow = this.add.ellipse(x, y + 4, sc * 150, sc * 48, 0x000000, 0.4).setDepth(4);
+        const ring = this.add.ellipse(x, y + 6, pull * 1.35, pull * 0.42).setStrokeStyle(1, 0xffb060, 0.22).setDepth(2);
         const head = y - sprite.displayHeight * 0.95;
-        const barBg = this.add.rectangle(x, head, 36, 4, 0x1a1010).setDepth(7);
-        const bar = this.add.rectangle(x - 18, head, 36, 4, 0xc44).setOrigin(0, 0.5).setDepth(8);
+        const barBg = this.add.rectangle(x, head, 36, 4, 0x1a1010).setDepth(7).setVisible(false);
+        const bar = this.add.rectangle(x - 18, head, 36, 4, 0xc44).setOrigin(0, 0.5).setDepth(8).setVisible(false);
         this.mobs.push({
-          sprite, ring, bar, barBg, kind: p.kind, homeX: x, homeY: y,
+          sprite, ring, shadow, bar, barBg, kind: p.kind, homeX: x, homeY: y,
           hp: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1), max: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1),
           state: "idle", pull, leash: p.kind === "boss" ? 280 : 210,
         });
@@ -220,8 +214,11 @@ class DungeonScene extends Phaser.Scene {
       const dHome = Phaser.Math.Distance.Between(px, py, m.homeX, m.homeY);
       const d = Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y);
       const head = m.sprite.y - m.sprite.displayHeight * 0.95;
-      m.barBg.setPosition(m.sprite.x, head);
-      m.bar.setPosition(m.sprite.x - 18, head);
+      const fighting = m.state === "combat";
+      m.barBg.setVisible(fighting).setPosition(m.sprite.x, head);
+      m.bar.setVisible(fighting).setPosition(m.sprite.x - 18, head);
+      if (m.shadow) m.shadow.setPosition(m.sprite.x, m.sprite.y + 4);
+      if (m.ring) m.ring.setPosition(m.sprite.x, m.sprite.y + 6);
       m.bar.width = 34 * Math.max(0, m.hp / m.max);
       if (m.state === "idle") {
         m.sprite.y = m.homeY + Math.sin(this.time.now / 280 + m.homeX) * 1.4;
@@ -281,6 +278,7 @@ class DungeonScene extends Phaser.Scene {
           best.state = "dead";
           best.sprite.destroy();
           if (best.ring) best.ring.destroy();
+          if (best.shadow) best.shadow.destroy();
           if (best.bar) best.bar.destroy();
           if (best.barBg) best.barBg.destroy();
           const mode = this.forge ? "forge" : this.world ? "world" : "pit";
@@ -295,7 +293,7 @@ class DungeonScene extends Phaser.Scene {
       const alive = this.mobs.some((m) => m.hp > 0);
       if (!alive && !this.doorOpen) {
         this.doorOpen = true;
-        this.door.clearTint();
+        this.door.setFillStyle(0xffc070, 0.8);
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
         if (this.roomIndex === this.roomsTotal - 1) {
           if (this.forge) {
@@ -313,7 +311,7 @@ class DungeonScene extends Phaser.Scene {
           }
         } else this.toast("Room clear — walk through the door");
       }
-      if (this.doorOpen && py < 90) {
+      if (this.doorOpen && py < h * 0.24) {
         this.advancing = true;
         this.doorOpen = false;
         this.player.setVelocity(0, 0);

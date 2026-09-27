@@ -7,7 +7,7 @@ class MallScene extends Phaser.Scene {
 
     const bgImg = this.add.image(w / 2, h / 2, "mallbg").setDepth(0);
     bgImg.setScale(Math.max(w / bgImg.width, h / bgImg.height));
-    this.add.rectangle(0, 0, w, h, 0x07060a, 0.5).setOrigin(0);
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.28).setOrigin(0);
     for (let i = 0; i < 18; i++) {
       const x = Phaser.Math.Between(10, w), y = Phaser.Math.Between(0, h);
       this.add.circle(x, y, Phaser.Math.Between(1, 2), 0xd4b56a, 0.15);
