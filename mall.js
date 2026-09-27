@@ -55,7 +55,7 @@ class MallScene extends Phaser.Scene {
       card.on("pointerup", () => this.enter(t, locked));
     }
 
-    this.btn(w * 0.18, h - 28, "SHOP", () => this.scene.start("shop"));
+    this.btn(w * 0.18, h - 28, "VENDOR", () => this.scene.start("vendor"));
     this.btn(w * 0.5, h - 28, "DAILIES", () => this.dailies());
     this.btn(w * 0.82, h - 28, "EQUIP BEST", () => this.equipBest());
 
@@ -155,7 +155,7 @@ class ShopScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x07060a);
     this.add.rectangle(w / 2, 0, w, 6, 0xd4b56a).setOrigin(0.5, 0);
     this.add.text(w / 2, 24, "FORTUNE DESK", { fontFamily: TITLE, fontSize: "22px", color: "#e8d59a" }).setOrigin(0.5, 0);
-    this.add.text(w / 2, 54, "Same table as the boss. Never a named Crown blade.", {
+    this.add.text(w / 2, 54, "Extra marks for the tier you are on. Never the piece itself.", {
       fontFamily: FONT, fontSize: "12px", color: "#8a8680", wordWrap: { width: w - 40 },
     }).setOrigin(0.5, 0);
     this.add.text(20, 80, `Med ${profile.medallions}    Fate ${profile.fate}${profile.vip ? "    VIP" : ""}`, {
@@ -201,8 +201,63 @@ class ShopScene extends Phaser.Scene {
     if (profile.fate >= 1) profile.fate--;
     else if (profile.medallions >= 40) profile.medallions -= 40;
     else return this.toast("Need Fate or 40 med");
-    this.toast(dropPiece(t, "Fate Roll"));
+    const n = 20 + t * 4;
+    addMarks(t, n);
+    this.toast(`+${n} ${TIERS[t].name} Marks`);
     this.time.delayedCall(600, () => this.scene.restart());
+  }
+}
+
+class VendorScene extends Phaser.Scene {
+  constructor() { super("vendor"); }
+  init(data) { this.tier = data.tier || Math.max(1, profile.currentTier || 1); }
+  create() {
+    const { width: w, height: h } = this.scale;
+    const t = this.tier;
+    const T = TIERS[t];
+    this.cameras.main.setBackgroundColor(0x07060a);
+    this.add.rectangle(w / 2, 0, w, 6, T.color).setOrigin(0.5, 0);
+    this.add.text(w / 2, 16, `${T.name.toUpperCase()} VENDOR`, {
+      fontFamily: TITLE, fontSize: "20px", color: "#e8d59a",
+    }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 44, `${marksOf(t)} ${T.name} Marks   ·   only from ${T.inst}`, {
+      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
+    }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 66, "Marks from this tier only. They do not buy the next set.", {
+      fontFamily: FONT, fontSize: "11px", color: "#8a8680", wordWrap: { width: w - 32 },
+    }).setOrigin(0.5, 0);
+
+    SLOTS.forEach((slot, i) => {
+      const y = 108 + i * 58;
+      const id = `T${t}_${slot}`;
+      const owned = profile.owned.includes(id);
+      const cost = markCost(t, slot);
+      this.add.rectangle(w / 2, y, w - 24, 50, 0x141218).setStrokeStyle(1, owned ? 0x1e5a32 : 0x3a3428);
+      this.add.text(24, y - 8, slot.toUpperCase(), { fontFamily: TITLE, fontSize: "13px", color: "#efeae0" }).setOrigin(0, 0.5);
+      const share = Math.round(SHARE[slot] * 100);
+      this.add.text(24, y + 12, `${share}% of this tier's haste`, { fontFamily: FONT, fontSize: "11px", color: "#8a8680" }).setOrigin(0, 0.5);
+      const label = owned ? "OWNED" : `${cost} marks`;
+      const b = this.add.rectangle(w - 78, y, 120, 32, owned ? 0x14301c : 0x2a2214)
+        .setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
+      this.add.text(w - 78, y, label, { fontFamily: FONT, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
+      if (!owned) b.on("pointerup", () => { this.toast(buyPiece(t, slot)); this.time.delayedCall(280, () => this.scene.restart({ tier: t })); });
+    });
+
+    this.btn(w * 0.22, h - 28, "PREV", () => this.scene.restart({ tier: Math.max(1, t - 1) }));
+    this.btn(w * 0.5, h - 28, "MALL", () => this.scene.start("mall"));
+    this.btn(w * 0.78, h - 28, "NEXT", () => this.scene.restart({ tier: Math.min(16, t + 1) }));
+    this.scale.on("resize", () => this.scene.restart({ tier: t }));
+  }
+  btn(x, y, label, fn) {
+    const r = this.add.rectangle(x, y, 96, 36, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive();
+    this.add.text(x, y, label, { fontFamily: TITLE, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
+    r.on("pointerup", fn);
+  }
+  toast(msg) {
+    const t = this.add.text(this.scale.width / 2, 90, msg, {
+      fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
+    }).setOrigin(0.5).setDepth(5);
+    this.time.delayedCall(900, () => t.destroy());
   }
 }
 
