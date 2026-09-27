@@ -31,7 +31,7 @@ class DungeonScene extends Phaser.Scene {
     this.walls = this.physics.add.staticGroup();
     this.door = null;
     this.player = this.physics.add.sprite(0, 0, "hero").setDepth(6).setOrigin(0.5, 0.92);
-    this.heroScale = Math.max(0.05, (this.scale.height * 0.22) / this.player.height);
+    this.heroScale = Math.max(0.04, (this.scale.height * 0.115) / this.player.height);
     this.player.setScale(this.heroScale);
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
     this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
@@ -276,32 +276,12 @@ class DungeonScene extends Phaser.Scene {
       });
     }
     this.nextSwing = this.time.now / 1000 + s.swing;
-    this.strikeUntil = this.time.now + 110;
+    this.strikeUntil = this.time.now + 220;
     this.player.setFlipX(Math.cos(ang) < 0);
-    this.player.setVelocity(Math.cos(ang) * 220, Math.sin(ang) * 220);
-    this.tweens.add({ targets: this.player, rotation: ang * 0.35, duration: 80, yoyo: true });
-    const ghost = this.add.sprite(this.player.x, this.player.y, "hero", 0)
-      .setScale(this.player.scaleX, this.player.scaleY).setFlipX(this.player.flipX)
-      .setAlpha(0.4).setTint(0xffe2a0).setDepth(5).setOrigin(0.5, 0.9);
-    this.tweens.add({ targets: ghost, alpha: 0, x: this.player.x - Math.cos(ang) * 16, duration: 160, onComplete: () => ghost.destroy() });
-    const arc = { t: 0 };
-    const g = this.add.graphics().setDepth(9);
-    this.tweens.add({
-      targets: arc, t: 1, duration: 160,
-      onUpdate: () => {
-        g.clear();
-        const a = ang - 1.35 + arc.t * 2.5;
-        g.lineStyle(10, 0xfff6d0, 0.28 * (1 - arc.t));
-        g.beginPath();
-        g.arc(this.player.x, this.player.y - 30, 62, a, a + 1.05, false);
-        g.strokePath();
-        g.lineStyle(3, 0xffffff, 0.9 * (1 - arc.t));
-        g.beginPath();
-        g.arc(this.player.x, this.player.y - 30, 54, a + 0.15, a + 0.85, false);
-        g.strokePath();
-      },
-      onComplete: () => g.destroy(),
-    });
+    this.player.setVelocity(0, 0);
+    this.player.setRotation(0);
+    this.player.setScale(this.heroScale);
+    this.swingBlade(ang);
     const ring = this.add.circle(best.sprite.x, best.sprite.y - 8, 6).setStrokeStyle(3, 0xfff1c4, 0.9).setDepth(9);
     this.tweens.add({ targets: ring, scale: 4.2, alpha: 0, duration: 180, onComplete: () => ring.destroy() });
     this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, best.hp <= 0 ? 22 : 12);
@@ -495,6 +475,55 @@ class DungeonScene extends Phaser.Scene {
     sp.setScale(base * (1 + wave * 0.06), base * (1 - wave * 0.07));
     sp.setRotation(wave * (m.state === "combat" ? 0.14 : 0.05));
   }
+  swingBlade(ang) {
+    if (this.bladeTween) this.bladeTween.stop();
+    const state = { a: ang - 1.7 };
+    this.bladeAngle = state.a;
+    this.bladeTween = this.tweens.add({
+      targets: state,
+      a: ang + 1.15,
+      duration: 150,
+      ease: "Cubic.easeOut",
+      onUpdate: () => { this.bladeAngle = state.a; },
+      onComplete: () => {
+        this.bladeTween = this.tweens.add({
+          targets: state,
+          a: ang + 0.45,
+          duration: 180,
+          ease: "Sine.easeOut",
+          onUpdate: () => { this.bladeAngle = state.a; },
+        });
+      },
+    });
+    const g = this.add.graphics().setDepth(8);
+    const arc = { t: 0 };
+    this.tweens.add({
+      targets: arc, t: 1, duration: 150,
+      onUpdate: () => {
+        g.clear();
+        const a = ang - 1.5 + arc.t * 2.4;
+        const reach = this.player.displayHeight * 0.85;
+        g.lineStyle(Math.max(3, reach * 0.08), 0xfff6d8, 0.75 * (1 - arc.t));
+        g.beginPath();
+        g.arc(this.player.x, this.player.y - this.player.displayHeight * 0.35, reach, a, a + 0.7, false);
+        g.strokePath();
+      },
+      onComplete: () => g.destroy(),
+    });
+  }
+  placeBlade() {
+    if (!this.blade) {
+      this.blade = this.add.rectangle(0, 0, 6, 64, 0xf4f1ea).setOrigin(0.5, 0.12).setDepth(7);
+      this.bladeEdge = this.add.rectangle(0, 0, 2, 58, 0xe7c56a).setOrigin(0.5, 0.08).setDepth(8);
+      this.bladeAngle = 0.7;
+    }
+    const handY = this.player.y - this.player.displayHeight * 0.38;
+    const side = this.player.flipX ? -1 : 1;
+    const x = this.player.x + side * this.player.displayWidth * 0.12;
+    const len = Math.max(28, this.player.displayHeight * 0.78);
+    this.blade.setPosition(x, handY).setRotation(this.bladeAngle).setDisplaySize(Math.max(3, len * 0.07), len);
+    this.bladeEdge.setPosition(x, handY).setRotation(this.bladeAngle).setDisplaySize(Math.max(1.5, len * 0.025), len * 0.92);
+  }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
       fontFamily: FONT, fontSize: "14px", color: "#e8d59a", backgroundColor: "#140e08", padding: { x: 12, y: 7 },
@@ -524,22 +553,14 @@ class DungeonScene extends Phaser.Scene {
     if (!striking) this.player.setVelocity(vx * 250, vy * 250);
     if (!striking) {
       if (vx) this.player.setFlipX(vx < 0);
-      if (mag > 0.15) {
-        const bob = Math.sin(this.time.now / 90) * 0.035;
-        this.player.setScale(this.heroScale + bob, this.heroScale - bob * 0.6);
-        this.player.setRotation(vx * 0.12);
-        if (this.time.now > (this.nextStep || 0)) {
-          this.nextStep = this.time.now + 280;
-          sfx("step");
-          const puff = this.add.circle(this.player.x, this.player.y + 2, 5, 0xd8cbb4, 0.35).setDepth(4);
-          this.tweens.add({ targets: puff, y: puff.y - 12, alpha: 0, scale: 2.2, duration: 260, onComplete: () => puff.destroy() });
-        }
-      } else {
-        const breathe = 1 + Math.sin(this.time.now / 420) * 0.015;
-        this.player.setScale(this.heroScale * breathe, this.heroScale * (2 - breathe));
-        this.player.setRotation(0);
+      this.player.setScale(this.heroScale);
+      this.player.setRotation(0);
+      if (mag > 0.15 && this.time.now > (this.nextStep || 0)) {
+        this.nextStep = this.time.now + 320;
+        sfx("step");
       }
     }
+    this.placeBlade();
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
