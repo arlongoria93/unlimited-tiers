@@ -62,8 +62,9 @@ function expectedDps(tier) {
 }
 
 function enemyHp(tier, kind) {
-  const secs = kind === "boss" ? 75 : kind === "elite" ? 12 : 5;
-  return Math.floor(expectedDps(tier) * secs);
+  const trash = tier <= 1 ? 1.6 : tier <= 3 ? 2.4 : tier <= 7 ? 3.5 : tier <= 11 ? 4.5 : tier <= 14 ? 6 : 8;
+  const mult = kind === "boss" ? (tier <= 2 ? 10 : tier <= 8 ? 14 : 18) : kind === "elite" ? 2.6 : 1;
+  return Math.max(8, Math.floor(expectedDps(tier) * trash * mult));
 }
 function itemOf(id) {
   const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(id);
