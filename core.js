@@ -92,7 +92,7 @@ function itemOf(id) {
 const CLASSES = [
   { id: "ironblade", name: "Ironblade", role: "Plate melee", tier: 0, cost: 0, color: "#e0b060",
     skills: [{ id: "guard", name: "Guard", cd: 12 }, { id: "titanwake", name: "Wake", cd: 16 }, { id: "cleave", name: "Cleave", cd: 10 }] },
-  { id: "spellweave", name: "Spellweave", role: "Cloth AoE", tier: 0, cost: 0, color: "#7ec8ff",
+  { id: "spellweave", name: "Spellweave", role: "Ranged cloth", tier: 0, cost: 0, color: "#7ec8ff",
     skills: [{ id: "bolt", name: "Bolt", cd: 4 }, { id: "meteor", name: "Meteor", cd: 12 }, { id: "weave", name: "Weave", cd: 16 }] },
   { id: "shadestep", name: "Shadestep", role: "Assassin", tier: 0, cost: 0, color: "#c084fc",
     skills: [{ id: "step", name: "Step", cd: 8 }, { id: "smoke", name: "Smoke", cd: 14 }, { id: "execute", name: "Execute", cd: 9 }] },

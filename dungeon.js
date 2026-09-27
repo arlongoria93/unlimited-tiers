@@ -284,6 +284,14 @@ class DungeonScene extends Phaser.Scene {
   landHit(best, s, px, py) {
     const ang = Phaser.Math.Angle.Between(px, py, best.sprite.x, best.sprite.y);
     best.hp -= s.hit;
+    best.state = "combat";
+    if ((profile.classId || "") === "spellweave") {
+      const bolt = this.add.circle(px, py - this.player.displayHeight * 0.45, 6, 0x8fd8ff, 0.95).setDepth(11);
+      this.tweens.add({
+        targets: bolt, x: best.sprite.x, y: best.sprite.y - 16, scale: 0.4, duration: 140,
+        onComplete: () => bolt.destroy(),
+      });
+    }
     if ((profile.graveUntil || 0) > Date.now()) this.hp = Math.min(this.maxHp, this.hp + s.hit * 0.2);
     if ((profile.phantomUntil || 0) > Date.now()) best.hp -= Math.round(s.hit * 0.7);
     if (this.cleaveLeft > 0) {
@@ -661,7 +669,8 @@ class DungeonScene extends Phaser.Scene {
           tx = m.sprite.x;
           ty = m.sprite.y;
           found = true;
-          stop = Math.max(18, (m.pull || 70) * 0.45);
+          if ((profile.classId || "") === "spellweave") stop = Math.min(h * 0.34, 280);
+          else stop = Math.max(18, (m.pull || 70) * 0.45);
         }
       }
       if (!found && this.doorOpen) {
@@ -674,6 +683,9 @@ class DungeonScene extends Phaser.Scene {
       if (found && best > stop) {
         vx = (tx - this.player.x) / Math.max(1, best);
         vy = (ty - this.player.y) / Math.max(1, best);
+      } else if (found && (profile.classId || "") === "spellweave" && best < stop * 0.55) {
+        vx = (this.player.x - tx) / Math.max(1, best);
+        vy = (this.player.y - ty) / Math.max(1, best);
       }
       if (found && best < Math.max(220, this.player.displayHeight * 2)) {
         const cls = classOf();
@@ -716,7 +728,8 @@ class DungeonScene extends Phaser.Scene {
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
-    const reach = Math.max(170, this.player.displayHeight * 1.8);
+    const ranged = (profile.classId || "") === "spellweave";
+    const reach = ranged ? Math.max(w, h) * 0.78 : Math.max(170, this.player.displayHeight * 1.8);
     const hurt = 26;
 
     for (const m of this.mobs) {
@@ -782,7 +795,7 @@ class DungeonScene extends Phaser.Scene {
     if (now >= this.nextSwing) {
       let best = null, bd = 999;
       for (const m of this.mobs) {
-        if (m.hp <= 0 || m.state !== "combat") continue;
+        if (m.hp <= 0 || (!ranged && m.state !== "combat")) continue;
         const d = Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y);
         if (d < reach && d < bd) { bd = d; best = m; }
       }
