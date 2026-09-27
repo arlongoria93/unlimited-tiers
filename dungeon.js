@@ -30,12 +30,12 @@ class DungeonScene extends Phaser.Scene {
     this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "hero", 0).setDepth(6).setOrigin(0.5, 0.88).setScale(0.34);
-    this.heroScale = 0.34;
+    this.player = this.physics.add.sprite(0, 0, "hero").setDepth(6).setOrigin(0.5, 0.92);
+    this.heroScale = Math.max(0.05, (this.scale.height * 0.17) / this.player.height);
+    this.player.setScale(this.heroScale);
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
-    this.player.play("hero-idle");
-    this.player.body.setSize(70, 40);
-    this.player.body.setOffset(61, 175);
+    this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
+    this.player.body.setOffset(this.player.width * 0.3, this.player.height * 0.76);
     this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.walls);
     this.sparks = this.add.particles(0, 0, "spark", {
@@ -233,12 +233,13 @@ class DungeonScene extends Phaser.Scene {
         const x = Phaser.Math.Clamp(p.x + (i - (p.n - 1) / 2) * 36, w * 0.24, w * 0.76);
         const y = Phaser.Math.Clamp(p.y + (i % 2) * 12, h * 0.3, h * 0.6);
         const tex = p.kind === "boss" ? "titan" : p.kind === "elite" ? "knight" : "hound";
-        const sc = p.kind === "boss" ? 0.48 : p.kind === "elite" ? 0.36 : 0.32;
-        const sprite = this.physics.add.sprite(x, y, tex, 0).setDepth(6).setOrigin(0.5, 0.9).setScale(sc);
-        sprite.play(tex + "-idle");
+        const sprite = this.physics.add.sprite(x, y, tex).setDepth(6).setOrigin(0.5, 0.92);
+        const want = (p.kind === "boss" ? 0.28 : p.kind === "elite" ? 0.18 : 0.13) * h;
+        const sc = want / sprite.height;
+        sprite.setScale(sc);
         sprite.body.setImmovable(true);
         const pull = p.kind === "boss" ? Math.min(120, w * 0.2) : Math.min(78, w * 0.15);
-        const shadow = this.add.ellipse(x, y + 6, sc * 180, sc * 52, 0x000000, 0.5).setDepth(5);
+        const shadow = this.add.ellipse(x, y + 4, sprite.displayWidth * 0.5, 14, 0x000000, 0.45).setDepth(5);
         const wide = p.kind === "elite" ? 46 : 30;
         const head = y - sprite.displayHeight * 0.92;
         const barBg = this.add.rectangle(x, head, wide, p.kind === "elite" ? 5 : 3, 0x140808).setDepth(7).setVisible(false);
@@ -366,8 +367,8 @@ class DungeonScene extends Phaser.Scene {
     sfx(n ? "hit" : "swing");
   }
   addPet(tint) {
-    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound", 0).setScale(0.22).setTint(tint).setDepth(6);
-    pet.play("hound-idle");
+    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound").setTint(tint).setDepth(6).setOrigin(0.5, 0.92);
+    pet.setScale(Math.max(0.04, (this.scale.height * 0.09) / pet.height));
     this.pets.push({ sprite: pet, until: this.time.now + 14000, next: 0 });
   }
   castSkill(index) {
