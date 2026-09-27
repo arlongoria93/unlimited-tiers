@@ -17,6 +17,10 @@ class MallScene extends Phaser.Scene {
     const title = this.add.text(w / 2, land ? 10 : 22, "UNLIMITED", {
       fontFamily: TITLE, fontSize: Math.min(land ? 26 : 34, w * 0.08) + "px", color: "#e8d59a",
     }).setOrigin(0.5, 0);
+    const board = this.add.text(w - 12, 14, "BOARD", {
+      fontFamily: TITLE, fontSize: "12px", color: "#e8d59a",
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    board.on("pointerup", () => this.scene.start("board"));
     this.tweens.add({ targets: title, scaleX: 1.04, scaleY: 1.04, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     for (let i = 0; i < 12; i++) this.riseEmber(w, h);
     this.add.text(w / 2, land ? 38 : 58, "TIER HALL", {
@@ -56,8 +60,8 @@ class MallScene extends Phaser.Scene {
     }
 
     this.btn(w * 0.18, h - 28, "VENDOR", () => this.scene.start("vendor"));
-    this.btn(w * 0.5, h - 28, "FORGE", () => this.scene.start("forge"));
-    this.btn(w * 0.82, h - 28, "BOARD", () => this.scene.start("board"));
+    this.btn(w * 0.5, h - 28, "CLASS", () => this.scene.start("classes"));
+    this.btn(w * 0.82, h - 28, "FORGE", () => this.scene.start("forge"));
 
     const s0 = compute();
     this.formula = this.add.text(16, h - 118, "swing = max(0.20,  1 / (1 + haste))", {
@@ -394,6 +398,47 @@ class BoardScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
     }).setOrigin(0.5).setDepth(5);
     this.time.delayedCall(1000, () => t.destroy());
+  }
+}
+
+class ClassScene extends Phaser.Scene {
+  constructor() { super("classes"); }
+  create() {
+    const { width: w, height: h } = this.scale;
+    this.cameras.main.setBackgroundColor(0x07060a);
+    const bg = this.add.image(w / 2, h / 2, "mallbg");
+    bg.setScale(Math.max(w / bg.width, h / bg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.78).setOrigin(0);
+    this.add.text(w / 2, 16, "CLASSES", { fontFamily: TITLE, fontSize: "22px", color: "#f6e7b2" }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 42, classOf().name, { fontFamily: FONT, fontSize: "13px", color: classOf().color }).setOrigin(0.5, 0);
+    const bw = (w - 28) / 2;
+    CLASSES.forEach((c, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = 10 + col * (bw + 8) + bw / 2;
+      const y = 78 + row * Math.min(58, (h - 140) / 5);
+      const open = classOpen(c);
+      const on = classOf().id === c.id;
+      const card = this.add.rectangle(x, y, bw, 52, on ? 0x2a2214 : 0x141218)
+        .setStrokeStyle(2, on ? 0xf0d080 : 0x3a3428).setInteractive({ useHandCursor: true });
+      this.add.text(x - bw / 2 + 10, y - 10, c.name, { fontFamily: TITLE, fontSize: "13px", color: c.color }).setOrigin(0, 0.5);
+      this.add.text(x - bw / 2 + 10, y + 10, open ? c.role : `Tier ${c.tier}  or  ${c.cost} med`, {
+        fontFamily: FONT, fontSize: "10px", color: "#8a8680",
+      }).setOrigin(0, 0.5);
+      card.on("pointerup", () => {
+        this.toast(takeClass(c.id));
+        this.time.delayedCall(350, () => this.scene.restart());
+      });
+    });
+    const back = this.add.rectangle(w / 2, h - 28, 140, 36, 0x1a1610).setStrokeStyle(1, 0xd4b56a).setInteractive();
+    this.add.text(w / 2, h - 28, "MALL", { fontFamily: TITLE, fontSize: "13px", color: "#e8d59a" }).setOrigin(0.5);
+    back.on("pointerup", () => this.scene.start("mall"));
+  }
+  toast(msg) {
+    const t = this.add.text(this.scale.width / 2, 64, msg, {
+      fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 8, y: 4 },
+    }).setOrigin(0.5).setDepth(5);
+    this.time.delayedCall(800, () => t.destroy());
   }
 }
 

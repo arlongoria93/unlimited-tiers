@@ -47,7 +47,10 @@ class DungeonScene extends Phaser.Scene {
     this.vignette = this.add.graphics().setScrollFactor(0).setDepth(15);
 
     this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT");
-    this.input.on("pointerdown", (p) => { this.stick.down = true; this.stick.sx = p.x; this.stick.sy = p.y; });
+    this.input.on("pointerdown", (p) => {
+      if (p.y > this.scale.height - 140) return;
+      this.stick.down = true; this.stick.sx = p.x; this.stick.sy = p.y;
+    });
     this.input.on("pointerup", () => { this.stick.down = false; this.stick.ax = 0; this.stick.ay = 0; });
     this.input.on("pointermove", (p) => {
       if (!this.stick.down) return;
@@ -77,15 +80,23 @@ class DungeonScene extends Phaser.Scene {
     this.mpFg = this.add.rectangle(0, 0, 10, 6, 0x3ec6e0).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22);
     this.skillSlots = [0, 1, 2, 3].map((i) => {
       const slot = this.add.rectangle(0, 0, 34, 34, i === 0 ? 0x3a2412 : 0x121018)
-        .setStrokeStyle(2, i === 0 ? 0xf0d080 : 0x6a5a40, i === 0 ? 1 : 0.4)
-        .setScrollFactor(0).setDepth(24);
-      const label = this.add.text(0, 0, ["ATK", "Q", "E", "R"][i], {
-        fontFamily: TITLE, fontSize: "11px", color: i === 0 ? "#f0d080" : "#6a6458",
-      }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
+        .setStrokeStyle(2, i === 0 ? 0xf0d080 : 0x6a5a40, i === 0 ? 1 : 0.85)
+        .setScrollFactor(0).setDepth(24).setInteractive();
+      const label = this.add.text(0, 0, "ATK", {
+        fontFamily: TITLE, fontSize: "9px", color: i === 0 ? "#f0d080" : "#f6e7b2",
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(26);
       const shade = this.add.rectangle(0, 0, 30, 0, 0x07060a, 0.72).setOrigin(0.5, 0).setScrollFactor(0).setDepth(25);
+      if (i > 0) slot.on("pointerup", () => this.castSkill(i - 1));
       return { slot, label, shade };
     });
-    this.nameTag = this.add.text(0, 0, "DUELIST", {
+    this.cds = {};
+    this.pets = [];
+    if (this.input.keyboard) {
+      this.input.keyboard.on("keydown-Q", () => this.castSkill(0));
+      this.input.keyboard.on("keydown-E", () => this.castSkill(1));
+      this.input.keyboard.on("keydown-R", () => this.castSkill(2));
+    }
+    this.nameTag = this.add.text(0, 0, classOf().name.toUpperCase(), {
       fontFamily: TITLE, fontSize: "12px", color: "#f6e7b2", stroke: "#140e08", strokeThickness: 4,
     }).setOrigin(0.5, 1).setDepth(12);
     this.shownHp = s.hp;
@@ -251,6 +262,18 @@ class DungeonScene extends Phaser.Scene {
   landHit(best, s, px, py) {
     const ang = Phaser.Math.Angle.Between(px, py, best.sprite.x, best.sprite.y);
     best.hp -= s.hit;
+    if ((profile.graveUntil || 0) > Date.now()) this.hp = Math.min(this.maxHp, this.hp + s.hit * 0.2);
+    if ((profile.phantomUntil || 0) > Date.now()) best.hp -= Math.round(s.hit * 0.7);
+    if (this.cleaveLeft > 0) {
+      this.cleaveLeft--;
+      this.mobs.forEach((m) => {
+        if (m === best || m.hp <= 0 || m.state !== "combat") return;
+        if (Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y) > 130) return;
+        m.hp -= s.hit * 1.5;
+        this.floatText(m.sprite.x, m.sprite.y - 16, `${Math.round(s.hit * 1.5)}`, "#ffe27a");
+        if (m.hp <= 0) this.fell(m);
+      });
+    }
     this.nextSwing = this.time.now / 1000 + s.swing;
     this.strikeUntil = this.time.now + 110;
     this.player.setFlipX(Math.cos(ang) < 0);
@@ -294,21 +317,133 @@ class DungeonScene extends Phaser.Scene {
       scaleY: best.sprite.scaleY * 0.82,
       duration: 50, yoyo: true,
     });
-    if (best.hp <= 0) {
-      best.state = "dead";
-      this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 18);
-      if (best.shadow) best.shadow.destroy();
-      if (best.bar) best.bar.destroy();
-      if (best.barBg) best.barBg.destroy();
-      const mode = this.forge ? "forge" : this.world ? "world" : "pit";
-      this.floatText(best.sprite.x, best.sprite.y - 40, grantKill(best.kind, this.tier, mode), "#7ee0e6");
-      this.tweens.add({
-        targets: best.sprite, alpha: 0, y: best.sprite.y - 36, angle: 28, duration: 280,
-        onComplete: () => best.sprite.destroy(),
-      });
-    } else {
-      this.time.delayedCall(70, () => { if (best.hp > 0) best.sprite.setTint(0xffd0c0); });
+    if (best.hp <= 0) this.fell(best);
+    else this.time.delayedCall(70, () => { if (best.hp > 0) best.sprite.setTint(0xffd0c0); });
+  }
+  fell(m) {
+    if (!m || m.state === "dead") return;
+    m.state = "dead";
+    m.hp = 0;
+    this.sparks.emitParticleAt(m.sprite.x, m.sprite.y, 16);
+    if (m.shadow) m.shadow.destroy();
+    if (m.bar) m.bar.destroy();
+    if (m.barBg) m.barBg.destroy();
+    const mode = this.forge ? "forge" : this.world ? "world" : "pit";
+    this.floatText(m.sprite.x, m.sprite.y - 40, grantKill(m.kind, this.tier, mode), "#7ee0e6");
+    this.tweens.add({
+      targets: m.sprite, alpha: 0, y: m.sprite.y - 36, angle: 28, duration: 280,
+      onComplete: () => m.sprite.destroy(),
+    });
+  }
+  hurtMob(m, dmg) {
+    if (!m || m.hp <= 0) return;
+    m.hp -= dmg;
+    m.state = m.state === "idle" ? "combat" : m.state;
+    this.floatText(m.sprite.x, m.sprite.y - 18, `${Math.round(dmg)}`, "#fff6d0");
+    if (m.hp <= 0) this.fell(m);
+  }
+  nearestFoe(maxDist) {
+    let best = null, bd = maxDist;
+    for (const m of this.mobs) {
+      if (m.hp <= 0) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
+      if (d < bd) { bd = d; best = m; }
     }
+    return best;
+  }
+  blast(range, dmg, color) {
+    const ring = this.add.circle(this.player.x, this.player.y - 10, 12, color, 0.28).setDepth(8);
+    this.tweens.add({ targets: ring, scale: range > 400 ? 7 : 3.2, alpha: 0, duration: 280, onComplete: () => ring.destroy() });
+    let n = 0;
+    this.mobs.forEach((m) => {
+      if (m.hp <= 0) return;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
+      if (d > range) return;
+      n++;
+      this.hurtMob(m, dmg);
+    });
+    if (!n) this.toast("Nothing in range");
+    sfx(n ? "hit" : "swing");
+  }
+  addPet(tint) {
+    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound", 0).setScale(0.22).setTint(tint).setDepth(6);
+    pet.play("hound-idle");
+    this.pets.push({ sprite: pet, until: this.time.now + 14000, next: 0 });
+  }
+  castSkill(index) {
+    const sk = classOf().skills[index];
+    if (!sk) return;
+    if ((this.cds[sk.id] || 0) > this.time.now) return;
+    this.cds[sk.id] = this.time.now + sk.cd * 1000;
+    const s = compute();
+    const id = sk.id;
+    if (id === "guard") { this.guardUntil = this.time.now + 2500; this.toast("Guard"); sfx("door"); }
+    else if (id === "titanwake") { profile.titanUntil = Date.now() + 5000; this.toast("Titanwake"); sfx("kill"); }
+    else if (id === "cleave") { this.cleaveLeft = 1; this.toast("Cleave armed"); sfx("swing"); }
+    else if (id === "bolt" || id === "spark") this.blast(240, s.hit * 1.5, 0x7ee8ff);
+    else if (id === "meteor") this.blast(999, s.hit * 1.7, 0xff8844);
+    else if (id === "weave" || id === "surge") {
+      profile.overloadUntil = Date.now() + 4000;
+      if (id === "surge") profile.stormUntil = Date.now() + 4000;
+      this.toast(id === "surge" ? "Surge" : "Weave");
+      sfx("swing");
+    }
+    else if (id === "step" || id === "tear") this.dash(id === "tear" ? s.hit : 0);
+    else if (id === "smoke") {
+      this.mobs.forEach((m) => { if (m.state === "combat") m.state = "leash"; });
+      this.toast("Smoke");
+      sfx("step");
+    }
+    else if (id === "execute") {
+      const m = this.nearestFoe(120);
+      if (!m) return this.toast("Too far");
+      const big = m.hp / m.max < 0.35;
+      this.hurtMob(m, s.hit * (big ? 3 : 1.3));
+      sfx(big ? "kill" : "hit");
+    }
+    else if (id === "mend" || id === "starlight") {
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (id === "mend" ? 0.35 : 0.22));
+      this.toast(id === "mend" ? "Mend" : "Starlight");
+      sfx("door");
+    }
+    else if (id === "oath") {
+      this.oathUntil = this.time.now + 4000;
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.12);
+      this.toast("Oath");
+    }
+    else if (id === "dawnstrike") {
+      const m = this.nearestFoe(140);
+      if (m) this.hurtMob(m, s.hit * 2);
+      this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.1);
+    }
+    else if (id === "pet") this.addPet(0x86efac);
+    else if (id === "volley") this.blast(260, s.hit * 0.9, 0x86efac);
+    else if (id === "howl") { profile.howlUntil = Date.now() + 5000; this.toast("Howl"); sfx("kill"); }
+    else if (id === "rift" || id === "rift2") this.addPet(id === "rift" ? 0xf472b6 : 0xa78bfa);
+    else if (id === "detonate") {
+      this.pets.forEach((p) => p.sprite.destroy());
+      this.pets = [];
+      this.blast(180, s.hit * 2, 0xf472b6);
+    }
+    else if (id === "storm") this.blast(220, s.hit * 1.1, 0x67e8f9);
+    else if (id === "brand") { profile.brandUntil = Date.now() + 6000; this.toast("Brand"); }
+    else if (id === "rune") this.blast(150, s.hit * 1.6, 0xf87171);
+    else if (id === "grave") { profile.graveUntil = Date.now() + 6000; this.toast("Grave"); }
+    else if (id === "star") { profile.starUntil = Date.now() + 5000; this.toast("Star"); }
+    else if (id === "nova") this.blast(999, s.hit * 1.3, 0xfde68a);
+    else if (id === "phantom") { profile.phantomUntil = Date.now() + 5000; this.toast("Phantom"); sfx("swing"); }
+    else if (id === "collapse") this.blast(999, s.hit * 2.2, 0xa78bfa);
+  }
+  dash(dmg) {
+    const vx = this.stick.ax || (this.player.flipX ? -1 : 1);
+    const vy = this.stick.ay || 0;
+    const mag = Math.hypot(vx, vy) || 1;
+    const nx = Phaser.Math.Clamp(this.player.x + (vx / mag) * 120, 40, this.scale.width - 40);
+    const ny = Phaser.Math.Clamp(this.player.y + (vy / mag) * 120, 80, this.scale.height - 150);
+    this.player.setPosition(nx, ny);
+    sfx("step");
+    if (dmg) this.blast(70, dmg, 0xa78bfa);
+    else this.toast("Step");
   }
   spawnEmber() {
     const { w, h } = this.view();
@@ -446,7 +581,10 @@ class DungeonScene extends Phaser.Scene {
         if (m.kind === "boss") this.poseBoss(m, d);
         if (d <= hurt) {
           const kindMult = m.kind === "boss" ? 1.5 : m.kind === "elite" ? 1.2 : 1;
-          this.hp -= (2.1 + this.tier * 0.38) * kindMult * dt;
+          let taken = (2.1 + this.tier * 0.38) * kindMult * dt;
+          if (this.guardUntil > this.time.now) taken *= 0.35;
+          if (this.oathUntil > this.time.now) taken *= 0.7;
+          this.hp -= taken;
         }
         continue;
       }
@@ -540,6 +678,28 @@ class DungeonScene extends Phaser.Scene {
 
     if (this.playerShadow) this.playerShadow.setPosition(this.player.x, this.player.y + 6);
     if (this.nameTag) this.nameTag.setPosition(this.player.x, this.player.y - this.player.displayHeight - 4);
+    const cls = classOf();
+    cls.skills.forEach((sk, i) => {
+      const slot = this.skillSlots[i + 1];
+      if (!slot) return;
+      slot.label.setText(sk.name.slice(0, 5).toUpperCase());
+      const left = Math.max(0, (this.cds[sk.id] || 0) - this.time.now);
+      slot.shade.height = 30 * Math.min(1, left / (sk.cd * 1000));
+    });
+    const petHit = ((profile.howlUntil || 0) > Date.now() ? 0.45 : 0.8) * 1000;
+    this.pets = this.pets.filter((p) => {
+      if (this.time.now > p.until || !p.sprite.active) { p.sprite.destroy(); return false; }
+      const foe = this.nearestFoe(999);
+      if (!foe) return true;
+      const ang = Phaser.Math.Angle.Between(p.sprite.x, p.sprite.y, foe.sprite.x, foe.sprite.y);
+      p.sprite.x += Math.cos(ang) * 90 * dt;
+      p.sprite.y += Math.sin(ang) * 90 * dt;
+      if (this.time.now > p.next && Phaser.Math.Distance.Between(p.sprite.x, p.sprite.y, foe.sprite.x, foe.sprite.y) < 36) {
+        p.next = this.time.now + petHit;
+        this.hurtMob(foe, compute().hit * 0.45);
+      }
+      return true;
+    });
 
     const bw = this._barW();
     const ratio = Math.max(0, this.hp / this.maxHp);

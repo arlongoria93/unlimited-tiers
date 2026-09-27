@@ -53,6 +53,10 @@ function compute() {
   if (profile.vip) haste += 0.05;
   if (profile.rite) haste += 0.03;
   if (profile.equipped.offset) haste += 0.04;
+  if ((profile.overloadUntil || 0) > Date.now()) haste += 0.5;
+  if ((profile.starUntil || 0) > Date.now()) haste += 0.25;
+  if ((profile.titanUntil || 0) > Date.now()) hit = Math.round(hit * 1.35);
+  if ((profile.brandUntil || 0) > Date.now()) hit = Math.round(hit * 1.25);
   return { haste, hit, hp, swing: swingTime(haste), dps: hit / swingTime(haste), preview: null };
 }
 
@@ -68,6 +72,48 @@ function enemyHp(tier, kind) {
 function itemOf(id) {
   const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(id);
   return m ? { tier: +m[1], slot: m[2], id } : null;
+}
+const CLASSES = [
+  { id: "ironblade", name: "Ironblade", role: "Plate melee", tier: 0, cost: 0, color: "#e0b060",
+    skills: [{ id: "guard", name: "Guard", cd: 12 }, { id: "titanwake", name: "Wake", cd: 16 }, { id: "cleave", name: "Cleave", cd: 10 }] },
+  { id: "spellweave", name: "Spellweave", role: "Cloth AoE", tier: 0, cost: 0, color: "#7ec8ff",
+    skills: [{ id: "bolt", name: "Bolt", cd: 4 }, { id: "meteor", name: "Meteor", cd: 12 }, { id: "weave", name: "Weave", cd: 16 }] },
+  { id: "shadestep", name: "Shadestep", role: "Assassin", tier: 0, cost: 0, color: "#c084fc",
+    skills: [{ id: "step", name: "Step", cd: 8 }, { id: "smoke", name: "Smoke", cd: 14 }, { id: "execute", name: "Execute", cd: 9 }] },
+  { id: "dawnward", name: "Dawnward", role: "Self-heal", tier: 2, cost: 80, color: "#f0d78a",
+    skills: [{ id: "mend", name: "Mend", cd: 10 }, { id: "oath", name: "Oath", cd: 16 }, { id: "dawnstrike", name: "Dawn", cd: 8 }] },
+  { id: "beastcall", name: "Beastcall", role: "Ranger + pet", tier: 4, cost: 160, color: "#86efac",
+    skills: [{ id: "pet", name: "Pet", cd: 16 }, { id: "volley", name: "Volley", cd: 7 }, { id: "howl", name: "Howl", cd: 14 }] },
+  { id: "hexbind", name: "Hexbind", role: "Two minions", tier: 6, cost: 280, color: "#f472b6",
+    skills: [{ id: "rift", name: "Rift", cd: 8 }, { id: "rift2", name: "Bind", cd: 8 }, { id: "detonate", name: "Detonate", cd: 14 }] },
+  { id: "stormtide", name: "Stormtide", role: "Battlemage", tier: 8, cost: 420, color: "#67e8f9",
+    skills: [{ id: "spark", name: "Spark", cd: 4 }, { id: "storm", name: "Storm", cd: 11 }, { id: "surge", name: "Surge", cd: 18 }] },
+  { id: "gravebrand", name: "Gravebrand", role: "Rune knight", tier: 10, cost: 640, color: "#f87171",
+    skills: [{ id: "brand", name: "Brand", cd: 14 }, { id: "rune", name: "Rune", cd: 9 }, { id: "grave", name: "Grave", cd: 16 }] },
+  { id: "starseer", name: "Starseer", role: "Buffer", tier: 12, cost: 900, color: "#fde68a",
+    skills: [{ id: "star", name: "Star", cd: 16 }, { id: "starlight", name: "Light", cd: 12 }, { id: "nova", name: "Nova", cd: 14 }] },
+  { id: "riftborne", name: "Riftborne", role: "Phantom swings", tier: 16, cost: 1600, color: "#a78bfa",
+    skills: [{ id: "phantom", name: "Phantom", cd: 16 }, { id: "tear", name: "Tear", cd: 8 }, { id: "collapse", name: "Collapse", cd: 18 }] },
+];
+function classOf() {
+  return CLASSES.find((c) => c.id === (profile.classId || "ironblade")) || CLASSES[0];
+}
+function classOpen(c) {
+  if (c.tier <= 0 || (profile.bought && profile.bought[c.id])) return true;
+  return (profile.currentTier || 0) >= c.tier;
+}
+function takeClass(id) {
+  const c = CLASSES.find((x) => x.id === id);
+  if (!c) return "Missing";
+  if (!classOpen(c)) {
+    if ((profile.medallions || 0) < c.cost) return `Need ${c.cost} med or tier ${c.tier}`;
+    profile.medallions -= c.cost;
+    profile.bought = profile.bought || {};
+    profile.bought[id] = true;
+  }
+  profile.classId = id;
+  persist();
+  return c.name;
 }
 function blankProfile() {
   return {
