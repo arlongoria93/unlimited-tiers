@@ -44,7 +44,14 @@ class DungeonScene extends Phaser.Scene {
       emitting: false, quantity: 6, blendMode: "ADD",
     }).setDepth(8);
     this.strikeUntil = 0;
-    for (let i = 0; i < 16; i++) this.spawnEmber();
+    for (let i = 0; i < 8; i++) this.spawnEmber();
+    ambient("pit");
+    this.input.once("pointerdown", () => ambient("pit"));
+    this.events.on("shutdown", () => ambient(null));
+    this.time.addEvent({
+      delay: 3600, loop: true,
+      callback: () => sfx(Math.random() < 0.45 ? "crackle" : "drip"),
+    });
     this.vignette = this.add.graphics().setScrollFactor(0).setDepth(15);
 
     this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT");
@@ -422,12 +429,16 @@ class DungeonScene extends Phaser.Scene {
   }
   spawnEmber() {
     const { w, h } = this.view();
-    const lamp = this.lamps && this.lamps.length ? this.lamps[Math.floor(Math.random() * this.lamps.length)] : null;
-    const x = lamp ? lamp.x + Phaser.Math.Between(-18, 18) : Phaser.Math.Between(20, Math.max(21, w - 20));
-    const y = lamp ? lamp.y + Phaser.Math.Between(-8, 16) : Phaser.Math.Between(Math.floor(h * 0.25), Math.max(30, h - 40));
-    const c = this.add.circle(x, y, 1.5, 0xffb060, 0.7).setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
+    const x = Phaser.Math.Between(16, Math.max(17, w - 16));
+    const y = Phaser.Math.Between(Math.floor(h * 0.16), Math.max(40, h - 90));
+    const warm = Math.random() < 0.6;
+    const c = this.add.circle(x, y, warm ? 1.3 : 1, warm ? 0xffc56a : 0xf4ead2, 0.4).setDepth(4);
     this.tweens.add({
-      targets: c, y: c.y - Phaser.Math.Between(40, 110), alpha: 0, duration: Phaser.Math.Between(1400, 2600),
+      targets: c,
+      y: y - Phaser.Math.Between(60, 150),
+      x: x + Phaser.Math.Between(-28, 28),
+      alpha: 0,
+      duration: Phaser.Math.Between(3200, 5600),
       onComplete: () => { c.destroy(); if (this.scene.isActive()) this.spawnEmber(); },
     });
   }

@@ -7,11 +7,21 @@ class MallScene extends Phaser.Scene {
 
     const bgImg = this.add.image(w / 2, h / 2, "mallbg").setDepth(0);
     bgImg.setScale(Math.max(w / bgImg.width, h / bgImg.height));
-    this.add.rectangle(0, 0, w, h, 0x07060a, 0.28).setOrigin(0);
-    for (let i = 0; i < 18; i++) {
-      const x = Phaser.Math.Between(10, w), y = Phaser.Math.Between(0, h);
-      this.add.circle(x, y, Phaser.Math.Between(1, 2), 0xd4b56a, 0.15);
-    }
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.18).setOrigin(0);
+    const mote = () => {
+      const x = Phaser.Math.Between(8, Math.max(9, w - 8));
+      const y = Phaser.Math.Between(40, Math.max(41, h - 40));
+      const c = this.add.circle(x, y, 1.2, 0xf0d090, 0.35).setDepth(1);
+      this.tweens.add({
+        targets: c, y: y - Phaser.Math.Between(40, 110), x: x + Phaser.Math.Between(-20, 20), alpha: 0,
+        duration: Phaser.Math.Between(3000, 5200),
+        onComplete: () => { c.destroy(); if (this.scene.isActive()) mote(); },
+      });
+    };
+    for (let i = 0; i < 10; i++) mote();
+    ambient("hall");
+    this.input.once("pointerdown", () => ambient("hall"));
+    this.events.on("shutdown", () => ambient(null));
     this.add.rectangle(w / 2, 0, w, 6, 0xd4b56a).setOrigin(0.5, 0).setAlpha(0.7);
     const land = w > h;
     const title = this.add.text(w / 2, land ? 10 : 22, "UNLIMITED", {

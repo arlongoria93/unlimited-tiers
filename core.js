@@ -329,7 +329,53 @@ function sfx(kind) {
   } else if (kind === "door") {
     blip(ctx, 140, 60, 0.28, 0.05, "sine");
     burst(ctx, 0.22, 0.04, 400, "lowpass");
+  } else if (kind === "drip") {
+    blip(ctx, 880, 420, 0.08, 0.012, "sine");
+  } else if (kind === "crackle") {
+    burst(ctx, 0.05, 0.015, 1800, "bandpass");
   }
+}
+function ambient(kind) {
+  if (ambient.bed) {
+    try { ambient.bed.stop(); } catch (e) {}
+    ambient.bed = null;
+  }
+  if (!kind) return;
+  const ctx = actx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const og = ctx.createGain();
+  const of = ctx.createBiquadFilter();
+  osc.type = "sine";
+  osc.frequency.value = kind === "hall" ? 98 : 62;
+  of.type = "lowpass";
+  of.frequency.value = 240;
+  og.gain.value = kind === "hall" ? 0.012 : 0.02;
+  osc.connect(of);
+  of.connect(og);
+  og.connect(ctx.destination);
+  osc.start();
+  const seconds = 2;
+  const buf = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = ctx.createBufferSource();
+  noise.buffer = buf;
+  noise.loop = true;
+  const nf = ctx.createBiquadFilter();
+  nf.type = "lowpass";
+  nf.frequency.value = kind === "hall" ? 500 : 320;
+  const ng = ctx.createGain();
+  ng.gain.value = kind === "hall" ? 0.006 : 0.01;
+  noise.connect(nf);
+  nf.connect(ng);
+  ng.connect(ctx.destination);
+  noise.start();
+  ambient.bed = {
+    stop() {
+      try { osc.stop(); noise.stop(); } catch (e) {}
+    },
+  };
 }
 function tone() { sfx("hit"); }
 function makeTex(scene, key, w, h, draw) {
