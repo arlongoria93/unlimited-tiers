@@ -2,18 +2,18 @@ class BootScene extends Phaser.Scene {
   constructor() { super("boot"); }
   preload() {
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("hound", "assets/td/hound-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("knight", "assets/td/knight-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("titan", "assets/td/titan-walk.png?v=36", { frameWidth: 32, frameHeight: 32 });
-    this.load.image("floorA", "assets/td/floor.png?v=36");
-    this.load.image("floorB", "assets/td/floor2.png?v=36");
-    this.load.image("floorC", "assets/td/floor3.png?v=36");
-    this.load.image("wallTile", "assets/td/wall.png?v=36");
-    this.load.image("doorTile", "assets/td/door.png?v=36");
-    this.load.image("mallbg", "assets/td/hall.jpg?v=36");
+    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("hound", "assets/td/hound-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("knight", "assets/td/knight-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("titan", "assets/td/titan-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.image("floorA", "assets/td/floor.png?v=37");
+    this.load.image("floorB", "assets/td/floor2.png?v=37");
+    this.load.image("floorC", "assets/td/floor3.png?v=37");
+    this.load.image("wallTile", "assets/td/wall.png?v=37");
+    this.load.image("doorTile", "assets/td/door.png?v=37");
+    this.load.image("mallbg", "assets/td/hall.jpg?v=37");
   }
   create() {
     const clip = (key, tex, rate, repeat) => {

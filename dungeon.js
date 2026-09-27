@@ -649,6 +649,44 @@ class DungeonScene extends Phaser.Scene {
     this.toast(msg);
     if (profile.owned.includes(`T${this.tier}_${miss.slot}`)) this.recover();
   }
+  paintVeil() {
+    const { w, h } = this.view();
+    if (w < 40 || h < 40 || !this.player) return;
+    if (!this.veil || this.veilW !== w || this.veilH !== h) {
+      if (this.textures.exists("veil")) this.textures.remove("veil");
+      this.textures.createCanvas("veil", Math.floor(w), Math.floor(h));
+      this.veilW = w;
+      this.veilH = h;
+      if (this.veil) this.veil.destroy();
+      this.veil = this.add.image(0, 0, "veil").setOrigin(0).setDepth(16);
+    }
+    const canvas = this.textures.get("veil");
+    const ctx = canvas.getContext();
+    const px = this.player.x;
+    const py = this.player.y;
+    const rad = Math.min(w, h) * 0.33;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(2,1,1,0.97)";
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "destination-out";
+    const hole = ctx.createRadialGradient(px, py, rad * 0.08, px, py, rad);
+    hole.addColorStop(0, "rgba(0,0,0,1)");
+    hole.addColorStop(0.62, "rgba(0,0,0,0.55)");
+    hole.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = hole;
+    ctx.beginPath();
+    ctx.arc(px, py, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    const ember = ctx.createRadialGradient(px, py, 8, px, py, rad * 0.42);
+    ember.addColorStop(0, "rgba(120,48,16,0.22)");
+    ember.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = ember;
+    ctx.beginPath();
+    ctx.arc(px, py, rad * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    canvas.refresh();
+  }
   update(_, dtMs) {
     if (this.paused) return;
     const dt = Math.min(0.05, dtMs / 1000);
@@ -704,6 +742,7 @@ class DungeonScene extends Phaser.Scene {
     const doorTop = this.doorOpen && Math.abs(this.player.x - w / 2) < (this.tile || 32) * 1.6;
     this.player.x = Phaser.Math.Clamp(this.player.x, pad, w - pad);
     this.player.y = Phaser.Math.Clamp(this.player.y, doorTop ? 6 : pad, h - pad);
+    this.paintVeil();
     if (!striking) {
       if (vx) this.player.setFlipX(vx < 0);
       this.player.setScale(this.heroScale);
