@@ -109,11 +109,15 @@ function dropPiece(tier, src) {
   return msg;
 }
 function enemyHp(tier, kind) {
-  const T = TIERS[tier];
-  const dps = T.hit / swingTime(T.haste);
-  return Math.floor(dps * (kind === "boss" ? (tier >= 13 ? 90 : 55) : kind === "elite" ? 16 : 7));
+  const hit = Math.max(8, compute().hit);
+  const trashHits = 3 + Math.floor(Math.max(0, tier - 1) / 3);
+  const hits = kind === "boss" ? 8 + tier : kind === "elite" ? trashHits * 2 : trashHits;
+  return hit * hits;
 }
 
+function paintCircle(g, x, y, r, color, a = 1) {
+  g.fillStyle(color, a); g.fillCircle(x, y, r);
+}
 function makeTex(scene, key, w, h, draw) {
   const g = scene.make.graphics({ add: false });
   draw(g);
@@ -139,4 +143,6 @@ function bootTextures(scene) {
     g.beginPath(); g.arc(24, 24, 14, -0.4, 1.2); g.strokePath();
   });
   makeTex(scene, "wallpx", 8, 8, (g) => { g.fillStyle(0x1a1a22, 1); g.fillRect(0, 0, 8, 8); });
+  makeTex(scene, "goldpx", 8, 8, (g) => { g.fillStyle(0xd4b56a, 1); g.fillCircle(4, 4, 3); });
 }
+
