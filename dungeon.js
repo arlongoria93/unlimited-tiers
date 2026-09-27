@@ -237,6 +237,7 @@ class DungeonScene extends Phaser.Scene {
           sprite, shadow, bar, barBg, barW: wide, kind: p.kind, homeX: x, homeY: y,
           hp: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1), max: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1),
           state: "idle", pull, leash: p.kind === "boss" ? 280 : 210,
+          baseScale: sc, attackAt: 0, slamming: false,
         });
       }
     });
@@ -320,6 +321,44 @@ class DungeonScene extends Phaser.Scene {
       onComplete: () => { c.destroy(); if (this.scene.isActive()) this.spawnEmber(); },
     });
   }
+  poseBoss(m, d) {
+    const sp = m.sprite;
+    const base = m.baseScale || 0.48;
+    if (m.slamming) return;
+    const t = this.time.now;
+    if (m.state === "combat" && d < 100 && t > m.attackAt) {
+      m.attackAt = t + 1400;
+      m.slamming = true;
+      const y0 = sp.y;
+      sp.setVelocity(0, 0);
+      this.tweens.add({
+        targets: sp,
+        y: y0 - 42,
+        scaleX: base * 0.82,
+        scaleY: base * 1.22,
+        duration: 180,
+        ease: "Quad.easeOut",
+        yoyo: true,
+        hold: 50,
+        onYoyo: () => {
+          sfx("slam");
+          const ring = this.add.ellipse(sp.x, sp.y + 12, 36, 14, 0xffb060, 0.5).setDepth(4);
+          this.tweens.add({ targets: ring, scaleX: 5.5, scaleY: 2.6, alpha: 0, duration: 340, onComplete: () => ring.destroy() });
+          this.cameras.main.shake(140, 0.007);
+          this.sparks.emitParticleAt(sp.x, sp.y + 4, 14);
+        },
+        onComplete: () => {
+          m.slamming = false;
+          sp.setScale(base);
+          sp.setRotation(0);
+        },
+      });
+      return;
+    }
+    const wave = Math.sin(t / (m.state === "combat" ? 150 : 380));
+    sp.setScale(base * (1 + wave * 0.06), base * (1 - wave * 0.07));
+    sp.setRotation(wave * (m.state === "combat" ? 0.14 : 0.05));
+  }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
       fontFamily: FONT, fontSize: "14px", color: "#e8d59a", backgroundColor: "#140e08", padding: { x: 12, y: 7 },
@@ -383,7 +422,8 @@ class DungeonScene extends Phaser.Scene {
       if (m.shadow) m.shadow.setPosition(m.sprite.x, m.sprite.y + 6);
       m.bar.width = (m.barW || 30) * Math.max(0, m.hp / m.max);
       if (m.state === "idle") {
-        m.sprite.y = m.homeY + Math.sin(this.time.now / 280 + m.homeX) * 1.4;
+        if (m.kind === "boss") this.poseBoss(m, d);
+        else m.sprite.y = m.homeY + Math.sin(this.time.now / 280 + m.homeX) * 1.4;
         if (d <= m.pull) {
           this.mobs.forEach((o) => {
             if (o.hp > 0 && Phaser.Math.Distance.Between(o.homeX, o.homeY, m.homeX, m.homeY) < 96) {
@@ -400,8 +440,10 @@ class DungeonScene extends Phaser.Scene {
           m.sprite.clearTint();
           continue;
         }
-        if (d > hurt + 8) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
+        if (m.slamming) m.sprite.setVelocity(0, 0);
+        else if (d > hurt + 8) this.physics.moveToObject(m.sprite, this.player, m.kind === "boss" ? 62 : 74);
         else m.sprite.setVelocity(0, 0);
+        if (m.kind === "boss") this.poseBoss(m, d);
         if (d <= hurt) {
           const kindMult = m.kind === "boss" ? 1.5 : m.kind === "elite" ? 1.2 : 1;
           this.hp -= (2.1 + this.tier * 0.38) * kindMult * dt;

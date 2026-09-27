@@ -277,6 +277,9 @@ function sfx(kind) {
     blip(ctx, 160, 70, 0.12, 0.05, "sawtooth");
   } else if (kind === "step") {
     burst(ctx, 0.04, 0.025, 280, "lowpass");
+  } else if (kind === "slam") {
+    burst(ctx, 0.2, 0.1, 240, "lowpass");
+    blip(ctx, 90, 40, 0.22, 0.07, "sine");
   } else if (kind === "door") {
     blip(ctx, 140, 60, 0.28, 0.05, "sine");
     burst(ctx, 0.22, 0.04, 400, "lowpass");

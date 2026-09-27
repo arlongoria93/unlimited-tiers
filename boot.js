@@ -16,7 +16,7 @@ class BootScene extends Phaser.Scene {
     this.load.image("mallbg", "assets/mall.jpg");
   }
   create() {
-    [["hero", 6], ["hound", 8], ["knight", 5], ["titan", 4]].forEach(([key, rate]) => {
+    [["hero", 6], ["hound", 8], ["knight", 5], ["titan", 8]].forEach(([key, rate]) => {
       this.anims.create({
         key: key + "-idle",
         frames: this.anims.generateFrameNumbers(key, { start: 0, end: 3 }),
