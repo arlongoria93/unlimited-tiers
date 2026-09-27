@@ -5,9 +5,9 @@ class MallScene extends Phaser.Scene {
     bootTextures(this);
     this.cameras.main.setBackgroundColor(0x07060a);
 
-    const bg = this.add.graphics();
-    bg.fillGradientStyle(0x140e08, 0x140e08, 0x07060a, 0x07060a, 1);
-    bg.fillRect(0, 0, w, h);
+    const bgImg = this.add.image(w / 2, h / 2, "mallbg").setDepth(0);
+    bgImg.setScale(Math.max(w / bgImg.width, h / bgImg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.5).setOrigin(0);
     for (let i = 0; i < 18; i++) {
       const x = Phaser.Math.Between(10, w), y = Phaser.Math.Between(0, h);
       this.add.circle(x, y, Phaser.Math.Between(1, 2), 0xd4b56a, 0.15);
@@ -216,6 +216,9 @@ class VendorScene extends Phaser.Scene {
     const t = this.tier;
     const T = TIERS[t];
     this.cameras.main.setBackgroundColor(0x07060a);
+    const bgImg = this.add.image(w / 2, h / 2, "mallbg");
+    bgImg.setScale(Math.max(w / bgImg.width, h / bgImg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.72).setOrigin(0);
     this.add.rectangle(w / 2, 0, w, 6, T.color).setOrigin(0.5, 0);
     this.add.text(w / 2, 16, `${T.name.toUpperCase()} VENDOR`, {
       fontFamily: TITLE, fontSize: "20px", color: "#e8d59a",

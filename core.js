@@ -96,6 +96,7 @@ function buyPiece(tier, slot) {
   if (marksOf(tier) < cost) return `Need ${cost - marksOf(tier)} more`;
   profile.marks[tier] -= cost;
   profile.owned.push(id);
+  profile.equipped[slot] = id;
   persist();
   return `Bought T${tier} ${slot}`;
 }
