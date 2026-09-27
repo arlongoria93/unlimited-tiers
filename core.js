@@ -38,7 +38,7 @@ const COST = {
   mainhand: 48, offhand: 28, chest: 18, legs: 16, head: 14, shoulders: 14, hands: 12,
   waist: 12, feet: 12, wrists: 10, neck: 16, back: 16, ring1: 16, ring2: 16, trinket1: 16, trinket2: 16,
 };
-const NO_WEAPON = new Set([5, 6, 7, 8, 9, 10, 11, 15]);
+const NO_MAIN = new Set([5, 6, 7, 9, 10, 11, 15]);
 const ELEMENTS = ["Ember Brand", "Tide Brand", "Thorn Brand", "Iron Brand"];
 const W = { early: [0.28, 0.28, 0.22, 0.22], mid: [0.22, 0.26, 0.26, 0.26], late: [0.16, 0.24, 0.3, 0.3], wall: [0.12, 0.22, 0.33, 0.33], crown: [0.1, 0.18, 0.36, 0.36] };
 
@@ -166,16 +166,22 @@ migrateGear();
 const persist = () => localStorage.setItem("ut_phaser", JSON.stringify(profile));
 
 function slotsFor(tier) {
-  if (tier === 8) return ["neck", "back", "ring1", "ring2", "trinket1", "trinket2"];
+  if (tier === 8) return ["mainhand", "neck", "back", "ring1", "ring2", "trinket1", "trinket2"];
   const slots = ["head", "neck", "shoulders", "back", "chest", "wrists", "hands", "waist", "legs", "feet", "ring1", "ring2", "trinket1", "trinket2"];
-  if (tier !== 1 && !NO_WEAPON.has(tier)) slots.push("mainhand", "offhand");
-  else if (tier === 1) slots.push("offhand");
+  if (tier === 1 || NO_MAIN.has(tier)) slots.push("offhand");
+  else slots.push("mainhand", "offhand");
   return slots;
+}
+function bladeNeeded(t) {
+  const blades = [1, 2, 3, 4, 8, 12, 13, 14, 16];
+  let need = 0;
+  for (const b of blades) if (b < t) need = b;
+  return need;
 }
 function hasOffsetFor() { return true; }
 function canEnter(t) {
   if (profile.attuned[t]) return { ok: true, pay: false, why: "" };
-  const need = t === 9 ? 7 : t - 1;
+  const need = bladeNeeded(t);
   if (!hasOffsetFor(t)) return { ok: false, pay: false, why: "Need the previous tier's pieces" };
   const pay = highestWeapon() < need;
   if (pay && profile.medallions < 20 * t) return { ok: false, pay: false, why: `Need a T${need} blade or ${20 * t} med` };

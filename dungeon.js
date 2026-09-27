@@ -264,7 +264,7 @@ class DungeonScene extends Phaser.Scene {
         const barBg = this.add.rectangle(x, head, wide, p.kind === "elite" ? 5 : 3, 0x140808).setDepth(7).setVisible(false);
         const bar = this.add.rectangle(x - wide / 2, head, wide, p.kind === "elite" ? 5 : 3, 0x9a1c18).setOrigin(0, 0.5).setDepth(8).setVisible(false);
         if (p.kind === "elite") bar.setStrokeStyle(1, 0xd4b56a, 0.9);
-        const hp = Math.floor(enemyHp(this.tier, p.kind) * (this.world ? 2 : 1) * (NO_WEAPON.has(this.tier) && p.kind === "boss" ? 1.5 : 1));
+        const hp = Math.floor(enemyHp(this.tier, p.kind) * (this.world ? 2 : 1) * (NO_MAIN.has(this.tier) && p.kind === "boss" ? 1.5 : 1));
         this.mobs.push({
           sprite, shadow, bar, barBg, barW: wide, kind: p.kind, homeX: x, homeY: y,
           hp, max: hp,
@@ -276,7 +276,7 @@ class DungeonScene extends Phaser.Scene {
 
     this.enrageAt = last && this.tier >= 13 ? this.time.now + (this.tier === 16 ? 180000 : 140000) : 0;
     this.hint.setText(`${T.inst.toUpperCase()}   ·   ${this.roomIndex + 1} / ${this.roomsTotal}`);
-    if (NO_WEAPON.has(this.tier) && !this.forge && this.roomIndex === 0) this.toast("No new blade here. The boss is heavier.");
+    if (NO_MAIN.has(this.tier) && !this.forge && this.roomIndex === 0) this.toast("No new main hand. The off hand is at the vendor.");
     this.fitHud();
     this.advancing = false;
     this._fitLock = false;

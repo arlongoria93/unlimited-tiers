@@ -248,10 +248,10 @@ class VendorScene extends Phaser.Scene {
     this.add.text(w / 2, 44, `${marksOf(t)} ${T.name} Marks   ·   only from ${T.inst}`, {
       fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
-    const note = t === 1 ? "Main hand is the forge. Everything else is bought here."
-      : t === 8 ? "Vault sells jewelry only."
-      : NO_WEAPON.has(t) ? "No new weapons. Your last blades keep swinging."
-      : t === 12 ? `Upgrade Marks ${profile.upgradeMarks || 0}. The boss drops them.`
+    const note = t === 1 ? "Main hand is the forge. Off hand is here."
+      : t === 8 ? "The Vault blade is the prize. Jewelry is here too."
+      : NO_MAIN.has(t) ? "No new main hand. Buy the off hand. The boss is heavier."
+      : t === 12 ? `Main hand spends an Upgrade Mark. You have ${profile.upgradeMarks || 0}.`
       : "Marks from this tier only. One piece per slot.";
     this.add.text(w / 2, 66, note, {
       fontFamily: FONT, fontSize: "11px", color: "#8a8680", wordWrap: { width: w - 32 }, align: "center",
