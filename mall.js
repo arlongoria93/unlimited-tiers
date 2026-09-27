@@ -58,7 +58,37 @@ class MallScene extends Phaser.Scene {
     this.btn(w * 0.18, h - 28, "SHOP", () => this.scene.start("shop"));
     this.btn(w * 0.5, h - 28, "DAILIES", () => this.dailies());
     this.btn(w * 0.82, h - 28, "EQUIP BEST", () => this.equipBest());
+
+    const s0 = compute();
+    this.formula = this.add.text(w / 2, h - 108, "swing = max(0.20, 1 / (1 + haste))", {
+      fontFamily: FONT, fontSize: "11px", color: "#8a8680",
+    }).setOrigin(0.5);
+    this.feelReadout = this.add.text(w / 2, h - 90, "", {
+      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
+    }).setOrigin(0.5);
+    this.dummy = this.add.circle(w - 36, h - 150, 22, 0x3a2418).setStrokeStyle(2, 0xd4b56a);
+    this.add.text(w - 36, h - 150, "DUMMY", { fontFamily: FONT, fontSize: "8px", color: "#e8d59a" }).setOrigin(0.5);
+    this.nextSwingAt = 0;
+    this.paintFeel(s0);
+
+    const chips = [null, 0, 1, 4, 7, 12];
+    const cw = Math.min(52, (w - 24) / chips.length - 4);
+    chips.forEach((tier, i) => {
+      const x = 16 + cw / 2 + i * (cw + 4);
+      const on = previewTier === tier;
+      const chip = this.add.rectangle(x, h - 68, cw, 26, on ? 0x2a2214 : 0x141218)
+        .setStrokeStyle(1, on ? 0xd4b56a : 0x3a3428).setInteractive({ useHandCursor: true });
+      this.add.text(x, h - 68, tier == null ? "MINE" : `T${tier}`, {
+        fontFamily: FONT, fontSize: "11px", color: on ? "#e8d59a" : "#c8c4b8",
+      }).setOrigin(0.5);
+      chip.on("pointerup", () => { previewTier = tier; this.scene.restart(); });
+    });
+
     this.scale.on("resize", () => this.scene.restart());
+  }
+  paintFeel(s) {
+    const tag = s.preview == null ? "your gear" : `preview T${s.preview} full set`;
+    this.feelReadout.setText(`${tag}   ${(s.haste * 100).toFixed(0)}% haste   ${s.swing.toFixed(2)}s   hit ${s.hit}   ${s.dps.toFixed(0)} dps`);
   }
   btn(x, y, label, fn) {
     const r = this.add.rectangle(x, y, 108, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
@@ -77,6 +107,7 @@ class MallScene extends Phaser.Scene {
       profile.attuned[t] = true; persist();
     }
     this.cameras.main.fadeOut(180, 7, 6, 10);
+    previewTier = null;
     this.time.delayedCall(180, () => this.scene.start("dungeon", { tier: t }));
   }
   dailies() {
@@ -103,6 +134,17 @@ class MallScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 12, y: 7 },
     }).setOrigin(0.5).setDepth(50);
     this.tweens.add({ targets: t, y: 96, alpha: 0, delay: 1400, duration: 280, onComplete: () => t.destroy() });
+  }
+  update() {
+    const s = compute();
+    if (this.time.now < this.nextSwingAt) return;
+    this.nextSwingAt = this.time.now + s.swing * 1000;
+    this.dummy.setFillStyle(0xffe0a0);
+    this.time.delayedCall(70, () => this.dummy && this.dummy.setFillStyle(0x3a2418));
+    const pop = this.add.text(this.dummy.x, this.dummy.y - 28, `+${s.hit}`, {
+      fontFamily: FONT, fontSize: "13px", color: "#fff4d0",
+    }).setOrigin(0.5).setDepth(5);
+    this.tweens.add({ targets: pop, y: pop.y - 18, alpha: 0, duration: Math.min(400, s.swing * 800), onComplete: () => pop.destroy() });
   }
 }
 
