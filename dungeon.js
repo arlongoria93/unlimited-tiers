@@ -652,18 +652,30 @@ class DungeonScene extends Phaser.Scene {
     if (this.keys.S.isDown || this.keys.DOWN.isDown) vy += 1;
     const mag0 = Math.hypot(vx, vy);
     if (profile.auto && mag0 < 0.2) {
-      let tx = 0, ty = 0, best = 1e9, found = false;
+      let tx = 0, ty = 0, best = 1e9, found = false, stop = 32;
       for (const m of this.mobs) {
         if (m.hp <= 0) continue;
         const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.sprite.x, m.sprite.y);
-        if (d < best) { best = d; tx = m.sprite.x; ty = m.sprite.y; found = true; }
+        if (d < best) {
+          best = d;
+          tx = m.sprite.x;
+          ty = m.sprite.y;
+          found = true;
+          stop = Math.max(18, (m.pull || 70) * 0.45);
+        }
       }
-      if (!found && this.doorOpen) { tx = w / 2; ty = h * 0.16; found = true; best = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty); }
-      if (found && best > 78) {
-        vx = (tx - this.player.x) / best;
-        vy = (ty - this.player.y) / best;
+      if (!found && this.doorOpen) {
+        tx = w / 2;
+        ty = h * 0.12;
+        best = Phaser.Math.Distance.Between(this.player.x, this.player.y, tx, ty);
+        found = true;
+        stop = 6;
       }
-      if (found && best < 220) {
+      if (found && best > stop) {
+        vx = (tx - this.player.x) / Math.max(1, best);
+        vy = (ty - this.player.y) / Math.max(1, best);
+      }
+      if (found && best < Math.max(220, this.player.displayHeight * 2)) {
         const cls = classOf();
         cls.skills.forEach((sk, i) => {
           if ((this.cds[sk.id] || 0) <= this.time.now) this.castSkill(i);
@@ -704,7 +716,7 @@ class DungeonScene extends Phaser.Scene {
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
-    const reach = 150;
+    const reach = Math.max(170, this.player.displayHeight * 1.8);
     const hurt = 26;
 
     for (const m of this.mobs) {
@@ -802,7 +814,8 @@ class DungeonScene extends Phaser.Scene {
           }
         } else this.toast("Room clear — walk through the door");
       }
-      if (this.doorOpen && py < h * 0.24) {
+      const doorLine = profile.auto ? h * 0.46 : h * 0.3;
+      if (this.doorOpen && py < doorLine) {
         this.advancing = true;
         this.doorOpen = false;
         this.player.setVelocity(0, 0);
