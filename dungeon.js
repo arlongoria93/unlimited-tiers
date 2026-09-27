@@ -96,6 +96,7 @@ class DungeonScene extends Phaser.Scene {
   buildRoom(keepPlayer) {
     const { w, h } = this.view();
     if (w < 40 || h < 40) return;
+    const T = TIERS[this.tier];
     this._fitLock = true;
     this.physics.world.setBounds(0, 0, w, h);
     this.floorLayer.setPosition(0, 0).setSize(w, h);
@@ -112,7 +113,6 @@ class DungeonScene extends Phaser.Scene {
     this.torches.forEach((t) => t.destroy());
     this.torches = [];
 
-    const T = TIERS[this.tier];
     const last = this.roomIndex === this.roomsTotal - 1;
     const land = w > h;
     [[w / 2, 14, w, 28], [w / 2, h - 14, w, 28], [14, h / 2, 28, h], [w - 14, h / 2, 28, h]].forEach((wall) => {
