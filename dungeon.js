@@ -667,7 +667,7 @@ class DungeonScene extends Phaser.Scene {
           tx = m.sprite.x;
           ty = m.sprite.y;
           found = true;
-          if ((profile.classId || "") === "spellweave") stop = Math.min(h * 0.34, 280);
+          if ((profile.classId || "") === "spellweave") stop = 110;
           else stop = Math.max(18, (m.pull || 70) * 0.45);
         }
       }
@@ -685,7 +685,7 @@ class DungeonScene extends Phaser.Scene {
         vx = (this.player.x - tx) / Math.max(1, best);
         vy = (this.player.y - ty) / Math.max(1, best);
       }
-      if (found && best < Math.max(220, this.player.displayHeight * 2)) {
+      if (found && best < ((profile.classId || "") === "spellweave" ? 140 : Math.max(220, this.player.displayHeight * 2))) {
         const cls = classOf();
         cls.skills.forEach((sk, i) => {
           if ((this.cds[sk.id] || 0) <= this.time.now) this.castSkill(i);
@@ -730,7 +730,7 @@ class DungeonScene extends Phaser.Scene {
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
     const ranged = (profile.classId || "") === "spellweave";
-    const reach = ranged ? Math.max(w, h) * 0.78 : Math.max(170, this.player.displayHeight * 1.8);
+    const reach = ranged ? 130 : Math.max(170, this.player.displayHeight * 1.8);
     const hurt = 26;
 
     for (const m of this.mobs) {
