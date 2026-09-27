@@ -30,9 +30,10 @@ class DungeonScene extends Phaser.Scene {
     this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "hero").setDepth(6).setOrigin(0.5, 0.92);
-    this.heroScale = Math.max(0.04, (this.scale.height * 0.115) / this.player.height);
+    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.92);
+    this.heroScale = Math.max(0.04, (this.scale.height * 0.13) / this.player.height);
     this.player.setScale(this.heroScale);
+    this.player.play("hero-idle");
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
     this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
     this.player.body.setOffset(this.player.width * 0.3, this.player.height * 0.76);
@@ -237,6 +238,7 @@ class DungeonScene extends Phaser.Scene {
         const want = (p.kind === "boss" ? 0.24 : p.kind === "elite" ? 0.13 : 0.085) * h;
         const sc = want / sprite.height;
         sprite.setScale(sc);
+        sprite.play(tex + "-move");
         sprite.body.setImmovable(true);
         const pull = p.kind === "boss" ? Math.min(120, w * 0.2) : Math.min(78, w * 0.15);
         const shadow = this.add.ellipse(x, y + 4, sprite.displayWidth * 0.5, 14, 0x000000, 0.45).setDepth(5);
@@ -276,12 +278,12 @@ class DungeonScene extends Phaser.Scene {
       });
     }
     this.nextSwing = this.time.now / 1000 + s.swing;
-    this.strikeUntil = this.time.now + 220;
+    this.strikeUntil = this.time.now + 280;
     this.player.setFlipX(Math.cos(ang) < 0);
     this.player.setVelocity(0, 0);
     this.player.setRotation(0);
     this.player.setScale(this.heroScale);
-    this.swingBlade(ang);
+    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== "hero-attack") this.player.play("hero-attack");
     const ring = this.add.circle(best.sprite.x, best.sprite.y - 8, 6).setStrokeStyle(3, 0xfff1c4, 0.9).setDepth(9);
     this.tweens.add({ targets: ring, scale: 4.2, alpha: 0, duration: 180, onComplete: () => ring.destroy() });
     this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, best.hp <= 0 ? 22 : 12);
@@ -347,8 +349,9 @@ class DungeonScene extends Phaser.Scene {
     sfx(n ? "hit" : "swing");
   }
   addPet(tint) {
-    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound").setTint(tint).setDepth(6).setOrigin(0.5, 0.92);
-    pet.setScale(Math.max(0.04, (this.scale.height * 0.09) / pet.height));
+    const pet = this.add.sprite(this.player.x + 16, this.player.y, "hound", 0).setTint(tint).setDepth(6).setOrigin(0.5, 0.92);
+    pet.setScale(Math.max(0.04, (this.scale.height * 0.08) / pet.height));
+    pet.play("hound-move");
     this.pets.push({ sprite: pet, until: this.time.now + 14000, next: 0 });
   }
   castSkill(index) {
@@ -559,12 +562,15 @@ class DungeonScene extends Phaser.Scene {
       if (vx) this.player.setFlipX(vx < 0);
       this.player.setScale(this.heroScale);
       this.player.setRotation(0);
-      if (mag > 0.15 && this.time.now > (this.nextStep || 0)) {
+      const moving = mag > 0.15;
+      const want = moving ? "hero-walk" : "hero-idle";
+      if (this.player.anims.currentAnim?.key !== want) this.player.play(want);
+      if (moving && this.time.now > (this.nextStep || 0)) {
         this.nextStep = this.time.now + 320;
         sfx("step");
       }
     }
-    this.placeBlade();
+    this.player.setDepth(6 + this.player.y * 0.01);
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
@@ -581,6 +587,7 @@ class DungeonScene extends Phaser.Scene {
       m.barBg.setVisible(overhead).setPosition(m.sprite.x, head);
       m.bar.setVisible(overhead).setPosition(m.sprite.x - (m.barW || 30) / 2, head);
       if (m.shadow) m.shadow.setPosition(m.sprite.x, m.sprite.y + 6);
+      m.sprite.setDepth(5 + m.sprite.y * 0.01);
       m.bar.width = (m.barW || 30) * Math.max(0, m.hp / m.max);
       if (m.state === "idle") {
         if (m.kind === "boss") this.poseBoss(m, d);
