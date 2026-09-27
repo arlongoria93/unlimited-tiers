@@ -30,8 +30,8 @@ class DungeonScene extends Phaser.Scene {
     this.floorDim = this.add.rectangle(0, 0, 64, 64, T.floor, 0.1).setOrigin(0).setDepth(1);
     this.walls = this.physics.add.staticGroup();
     this.door = null;
-    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.82);
-    this.heroScale = Math.max(2, Math.round((this.scale.height * 0.12) / 32));
+    this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.94);
+    this.heroScale = Math.max(0.45, (this.scale.height * 0.2) / this.player.height);
     this.player.setScale(this.heroScale);
     this.player.play(this.heroSet().idle);
     this.gearGlow = this.add.circle(0, 0, 22, 0xffcc88, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);

@@ -2,9 +2,9 @@ class BootScene extends Phaser.Scene {
   constructor() { super("boot"); }
   preload() {
     this.cameras.main.setBackgroundColor(0x07060a);
-    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=37", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=37", { frameWidth: 32, frameHeight: 32 });
+    this.load.spritesheet("heroIdle", "assets/td/hero-idle.png?v=38", { frameWidth: 230, frameHeight: 196 });
+    this.load.spritesheet("heroWalk", "assets/td/hero-walk.png?v=38", { frameWidth: 230, frameHeight: 196 });
+    this.load.spritesheet("heroAttack", "assets/td/hero-attack.png?v=38", { frameWidth: 230, frameHeight: 196 });
     this.load.spritesheet("hound", "assets/td/hound-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet("knight", "assets/td/knight-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
     this.load.spritesheet("titan", "assets/td/titan-walk.png?v=37", { frameWidth: 32, frameHeight: 32 });
