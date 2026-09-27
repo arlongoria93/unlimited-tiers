@@ -26,7 +26,41 @@ const SHARE = { weapon: 0.5, armor: 0.25, ring: 0.125, trinket: 0.125 };
 const W = { early: [0.28, 0.28, 0.22, 0.22], mid: [0.22, 0.26, 0.26, 0.26], late: [0.16, 0.24, 0.3, 0.3], wall: [0.12, 0.22, 0.33, 0.33], crown: [0.1, 0.18, 0.36, 0.36] };
 
 function band(t) { return t <= 4 ? "early" : t <= 8 ? "mid" : t <= 12 ? "late" : t <= 15 ? "wall" : "crown"; }
+let previewTier = null;
+
 function swingTime(h) { return Math.max(0.2, 1 / (1 + Math.max(0, h))); }
+
+function compute() {
+  if (previewTier != null) {
+    const T = TIERS[previewTier] || TIERS[0];
+    const haste = T.haste;
+    const swing = swingTime(haste);
+    return { haste, hit: T.hit, hp: T.hp, swing, dps: T.hit / swing, preview: previewTier };
+  }
+  let haste = 0, hit = 8, hp = 80;
+  const ts = {};
+  for (const slot of SLOTS) {
+    const it = itemOf(profile.equipped[slot]);
+    if (!it) continue;
+    const T = TIERS[it.tier] || TIERS[0];
+    haste += T.haste * SHARE[slot];
+    if (slot === "weapon") hit = T.hit;
+    if (slot === "armor") hp = T.hp;
+    ts[slot] = it.tier;
+  }
+  if (profile.vip) haste += 0.05;
+  return { haste, hit, hp, swing: swingTime(haste), dps: hit / swingTime(haste), preview: null };
+}
+
+function expectedDps(tier) {
+  const T = TIERS[tier] || TIERS[0];
+  return T.hit / swingTime(T.haste);
+}
+
+function enemyHp(tier, kind) {
+  const secs = kind === "boss" ? 75 : kind === "elite" ? 12 : 5;
+  return Math.floor(expectedDps(tier) * secs);
+}
 function itemOf(id) {
   const m = /^T(\d+)_(weapon|armor|ring|trinket)$/.exec(id);
   return m ? { tier: +m[1], slot: m[2], id } : null;
@@ -42,22 +76,6 @@ function blankProfile() {
 let profile = Object.assign(blankProfile(), JSON.parse(localStorage.getItem("ut_phaser") || "{}"));
 const persist = () => localStorage.setItem("ut_phaser", JSON.stringify(profile));
 
-function compute() {
-  let haste = 0, hit = 8, hp = 80;
-  const ts = {};
-  for (const slot of SLOTS) {
-    const it = itemOf(profile.equipped[slot]);
-    if (!it) continue;
-    const T = TIERS[it.tier] || TIERS[0];
-    haste += (T.haste / 1.1) * SHARE[slot];
-    if (slot === "weapon") hit = T.hit;
-    if (slot === "armor") hp = T.hp;
-    ts[slot] = it.tier;
-  }
-  if (profile.vip) haste += 0.05;
-  if (SLOTS.every((s) => ts[s] === ts.weapon)) haste += 0.1;
-  return { haste, hit, hp, swing: swingTime(haste), dps: hit / swingTime(haste) };
-}
 function highestWeapon() {
   let b = 0;
   for (const id of profile.owned) {
@@ -107,12 +125,6 @@ function dropPiece(tier, src) {
   if (profile.slotLock > 0) profile.slotLock--;
   persist();
   return msg;
-}
-function enemyHp(tier, kind) {
-  const hit = Math.max(8, compute().hit);
-  const trashHits = 3 + Math.floor(Math.max(0, tier - 1) / 3);
-  const hits = kind === "boss" ? 8 + tier : kind === "elite" ? trashHits * 2 : trashHits;
-  return hit * hits;
 }
 
 function paintCircle(g, x, y, r, color, a = 1) {
