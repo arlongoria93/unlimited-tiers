@@ -13,11 +13,12 @@ class MallScene extends Phaser.Scene {
       this.add.circle(x, y, Phaser.Math.Between(1, 2), 0xd4b56a, 0.15);
     }
     this.add.rectangle(w / 2, 0, w, 6, 0xd4b56a).setOrigin(0.5, 0).setAlpha(0.7);
-
     const land = w > h;
-    this.add.text(w / 2, land ? 10 : 22, "UNLIMITED", {
+    const title = this.add.text(w / 2, land ? 10 : 22, "UNLIMITED", {
       fontFamily: TITLE, fontSize: Math.min(land ? 26 : 34, w * 0.08) + "px", color: "#e8d59a",
     }).setOrigin(0.5, 0);
+    this.tweens.add({ targets: title, scaleX: 1.04, scaleY: 1.04, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    for (let i = 0; i < 12; i++) this.riseEmber(w, h);
     this.add.text(w / 2, land ? 38 : 58, "T I E R S", {
       fontFamily: TITLE, fontSize: "12px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
@@ -91,6 +92,16 @@ class MallScene extends Phaser.Scene {
   paintFeel(s) {
     const tag = s.preview == null ? "your gear" : `T${s.preview} set`;
     this.feelReadout.setText(`${tag}   ${(s.haste * 100).toFixed(0)}%   ${s.swing.toFixed(2)}s   hit ${s.hit}`);
+  }
+  riseEmber(w, h) {
+    const c = this.add.circle(Phaser.Math.Between(8, Math.max(9, w - 8)), Phaser.Math.Between(Math.floor(h * 0.35), Math.max(1, h - 8)), 1.6, 0xff9a40, 0.65).setDepth(2);
+    this.tweens.add({
+      targets: c,
+      y: c.y - Phaser.Math.Between(90, 200),
+      alpha: 0,
+      duration: Phaser.Math.Between(1800, 3400),
+      onComplete: () => { c.destroy(); if (this.scene.isActive()) this.riseEmber(this.scale.width, this.scale.height); },
+    });
   }
   btn(x, y, label, fn) {
     const r = this.add.rectangle(x, y, 108, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });

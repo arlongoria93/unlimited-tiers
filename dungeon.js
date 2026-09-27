@@ -40,6 +40,8 @@ class DungeonScene extends Phaser.Scene {
       lifespan: 420, speed: { min: 20, max: 80 }, scale: { start: 0.7, end: 0 },
       emitting: false, quantity: 6, blendMode: "ADD",
     }).setDepth(8);
+    this.strikeUntil = 0;
+    for (let i = 0; i < 16; i++) this.spawnEmber();
     this.vignette = this.add.graphics().setScrollFactor(0).setDepth(15);
 
     this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT");
@@ -180,6 +182,64 @@ class DungeonScene extends Phaser.Scene {
     this.advancing = false;
     this._fitLock = false;
   }
+  landHit(best, s, px, py) {
+    const ang = Phaser.Math.Angle.Between(px, py, best.sprite.x, best.sprite.y);
+    best.hp -= s.hit;
+    this.nextSwing = this.time.now / 1000 + s.swing;
+    this.strikeUntil = this.time.now + 110;
+    this.player.setFlipX(Math.cos(ang) < 0);
+    this.player.setVelocity(Math.cos(ang) * 220, Math.sin(ang) * 220);
+    this.tweens.add({ targets: this.player, rotation: ang * 0.25, duration: 70, yoyo: true });
+    const arc = { t: 0 };
+    const g = this.add.graphics().setDepth(9);
+    this.tweens.add({
+      targets: arc, t: 1, duration: 150,
+      onUpdate: () => {
+        g.clear();
+        g.lineStyle(4, 0xfff1c4, 0.85 * (1 - arc.t));
+        const a = ang - 1.2 + arc.t * 2.4;
+        g.beginPath();
+        g.arc(this.player.x, this.player.y - 28, 58, a, a + 0.85, false);
+        g.strokePath();
+      },
+      onComplete: () => g.destroy(),
+    });
+    this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, 8);
+    this.floatText(best.sprite.x, best.sprite.y - 22, `${s.hit}`, "#fff4d0");
+    this.cameras.main.shake(best.hp <= 0 ? 140 : 70, best.hp <= 0 ? 0.007 : 0.003);
+    tone(180 + Math.min(900, s.dps), 0.05);
+    best.sprite.setTint(0xffffff);
+    this.tweens.add({
+      targets: best.sprite,
+      scaleX: best.sprite.scaleX * 1.18,
+      scaleY: best.sprite.scaleY * 0.82,
+      duration: 50, yoyo: true,
+    });
+    if (best.hp <= 0) {
+      best.state = "dead";
+      this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 18);
+      if (best.ring) best.ring.destroy();
+      if (best.shadow) best.shadow.destroy();
+      if (best.bar) best.bar.destroy();
+      if (best.barBg) best.barBg.destroy();
+      const mode = this.forge ? "forge" : this.world ? "world" : "pit";
+      this.floatText(best.sprite.x, best.sprite.y - 40, grantKill(best.kind, this.tier, mode), "#7ee0e6");
+      this.tweens.add({
+        targets: best.sprite, alpha: 0, y: best.sprite.y - 36, angle: 28, duration: 280,
+        onComplete: () => best.sprite.destroy(),
+      });
+    } else {
+      this.time.delayedCall(70, () => { if (best.hp > 0) best.sprite.setTint(0xffd0c0); });
+    }
+  }
+  spawnEmber() {
+    const { w, h } = this.view();
+    const c = this.add.circle(Phaser.Math.Between(20, Math.max(21, w - 20)), Phaser.Math.Between(Math.floor(h * 0.25), Math.max(30, h - 40)), 1.4, 0xffb060, 0.55).setDepth(3);
+    this.tweens.add({
+      targets: c, y: c.y - Phaser.Math.Between(40, 110), alpha: 0, duration: Phaser.Math.Between(1400, 2600),
+      onComplete: () => { c.destroy(); if (this.scene.isActive()) this.spawnEmber(); },
+    });
+  }
   toast(msg) {
     const t = this.add.text(this.scale.width / 2, 96, msg, {
       fontFamily: FONT, fontSize: "14px", color: "#e8d59a", backgroundColor: "#140e08", padding: { x: 12, y: 7 },
@@ -201,8 +261,20 @@ class DungeonScene extends Phaser.Scene {
     if (this.keys.S.isDown || this.keys.DOWN.isDown) vy += 1;
     const mag = Math.hypot(vx, vy);
     if (mag > 1) { vx /= mag; vy /= mag; }
-    this.player.setVelocity(vx * 250, vy * 250);
-    if (vx) this.player.setFlipX(vx < 0);
+    const striking = this.time.now < this.strikeUntil;
+    if (!striking) this.player.setVelocity(vx * 250, vy * 250);
+    if (!striking) {
+      if (vx) this.player.setFlipX(vx < 0);
+      if (mag > 0.15) {
+        const bob = Math.sin(this.time.now / 90) * 0.035;
+        this.player.setScale(0.24 + bob, 0.24 - bob * 0.6);
+        this.player.setRotation(vx * 0.12);
+      } else {
+        const breathe = 1 + Math.sin(this.time.now / 420) * 0.015;
+        this.player.setScale(0.24 * breathe, 0.24 * (2 - breathe));
+        this.player.setRotation(0);
+      }
+    }
 
     const px = this.player.x, py = this.player.y;
     const now = this.time.now / 1000;
@@ -264,27 +336,7 @@ class DungeonScene extends Phaser.Scene {
         const d = Phaser.Math.Distance.Between(px, py, m.sprite.x, m.sprite.y);
         if (d < reach && d < bd) { bd = d; best = m; }
       }
-      if (best) {
-        best.hp -= s.hit;
-        this.nextSwing = now + s.swing;
-        const slash = this.add.image(best.sprite.x, best.sprite.y, "slash").setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
-        slash.setRotation(Phaser.Math.Angle.Between(px, py, best.sprite.x, best.sprite.y));
-        this.tweens.add({ targets: slash, alpha: 0, scale: 1.4, duration: 140, onComplete: () => slash.destroy() });
-        this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 7);
-        this.floatText(best.sprite.x, best.sprite.y - 18, `${s.hit}`, "#fff4d0");
-        tone(220 + Math.min(800, s.dps), 0.05);
-        if (best.hp <= 0) {
-          this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 16);
-          best.state = "dead";
-          best.sprite.destroy();
-          if (best.ring) best.ring.destroy();
-          if (best.shadow) best.shadow.destroy();
-          if (best.bar) best.bar.destroy();
-          if (best.barBg) best.barBg.destroy();
-          const mode = this.forge ? "forge" : this.world ? "world" : "pit";
-          this.floatText(best.sprite.x, best.sprite.y - 36, grantKill(best.kind, this.tier, mode), "#7ee0e6");
-        }
-      }
+      if (best) this.landHit(best, s, px, py);
     }
 
     if (this.enrageAt && this.time.now > this.enrageAt) this.hp -= 40 * dt;
