@@ -33,7 +33,8 @@ class DungeonScene extends Phaser.Scene {
     this.player = this.physics.add.sprite(0, 0, "heroIdle", 0).setDepth(6).setOrigin(0.5, 0.92);
     this.heroScale = Math.max(0.04, (this.scale.height * 0.13) / this.player.height);
     this.player.setScale(this.heroScale);
-    this.player.play("hero-idle");
+    this.player.play(this.heroSet().idle);
+    this.gearGlow = this.add.circle(0, 0, 22, 0xffcc88, 0).setBlendMode(Phaser.BlendModes.ADD).setDepth(5);
     this.playerShadow = this.add.ellipse(0, 0, 54, 16, 0x000000, 0.45).setDepth(5);
     this.player.body.setSize(this.player.width * 0.4, this.player.height * 0.2);
     this.player.body.setOffset(this.player.width * 0.3, this.player.height * 0.76);
@@ -185,7 +186,8 @@ class DungeonScene extends Phaser.Scene {
     const ix = w * (land ? 0.08 : 0.11);
     const iy = h * 0.13;
     this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
-    this.roomArt.setTexture(land ? "roomL" : "roomP");
+    const key = this.textures.exists("tier" + this.tier) ? "tier" + this.tier : (land ? "roomL" : "roomP");
+    this.roomArt.setTexture(key);
     this.roomArt.setPosition(w / 2, h / 2);
     const cover = Math.max(w / this.roomArt.width, h / this.roomArt.height);
     this.roomCover = cover * 1.08;
@@ -252,9 +254,10 @@ class DungeonScene extends Phaser.Scene {
         const barBg = this.add.rectangle(x, head, wide, p.kind === "elite" ? 5 : 3, 0x140808).setDepth(7).setVisible(false);
         const bar = this.add.rectangle(x - wide / 2, head, wide, p.kind === "elite" ? 5 : 3, 0x9a1c18).setOrigin(0, 0.5).setDepth(8).setVisible(false);
         if (p.kind === "elite") bar.setStrokeStyle(1, 0xd4b56a, 0.9);
+        const hp = Math.floor(enemyHp(this.tier, p.kind) * (this.world ? 2 : 1) * (NO_WEAPON.has(this.tier) && p.kind === "boss" ? 1.5 : 1));
         this.mobs.push({
           sprite, shadow, bar, barBg, barW: wide, kind: p.kind, homeX: x, homeY: y,
-          hp: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1), max: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1),
+          hp, max: hp,
           state: "idle", pull, leash: p.kind === "boss" ? 280 : 210,
           baseScale: sc, attackAt: 0, slamming: false,
         });
@@ -263,6 +266,7 @@ class DungeonScene extends Phaser.Scene {
 
     this.enrageAt = last && this.tier >= 13 ? this.time.now + (this.tier === 16 ? 180000 : 140000) : 0;
     this.hint.setText(`${T.inst.toUpperCase()}   ·   ${this.roomIndex + 1} / ${this.roomsTotal}`);
+    if (NO_WEAPON.has(this.tier) && !this.forge && this.roomIndex === 0) this.toast("No new blade here. The boss is heavier.");
     this.fitHud();
     this.advancing = false;
     this._fitLock = false;
@@ -288,7 +292,7 @@ class DungeonScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     this.player.setRotation(0);
     this.player.setScale(this.heroScale);
-    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== "hero-attack") this.player.play("hero-attack");
+    if (!this.player.anims.isPlaying || this.player.anims.currentAnim?.key !== this.heroSet().attack) this.player.play(this.heroSet().attack);
     const ring = this.add.circle(best.sprite.x, best.sprite.y - 8, 6).setStrokeStyle(3, 0xfff1c4, 0.9).setDepth(9);
     this.tweens.add({ targets: ring, scale: 4.2, alpha: 0, duration: 180, onComplete: () => ring.destroy() });
     this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, best.hp <= 0 ? 22 : 12);
@@ -554,7 +558,74 @@ class DungeonScene extends Phaser.Scene {
     t.setScale(0.6);
     this.tweens.add({ targets: t, y: y - 36, scale: 1.15, alpha: 0, duration: 520, ease: "Cubic.easeOut", onComplete: () => t.destroy() });
   }
+  heroSet() {
+    const id = profile.classId || "ironblade";
+    if (id === "spellweave") return { idle: "weave-idle", walk: "weave-walk", attack: "weave-attack" };
+    if (id === "shadestep") return { idle: "shade-idle", walk: "shade-idle", attack: "shade-attack" };
+    return { idle: "hero-idle", walk: "hero-walk", attack: "hero-attack" };
+  }
+  openPanel(title, body, buttons) {
+    this.paused = true;
+    this.player.setVelocity(0, 0);
+    if (this.panel) this.panel.destroy();
+    const { w, h } = this.view();
+    const box = this.add.container(0, 0).setDepth(60);
+    const dim = this.add.rectangle(w / 2, h / 2, w, h, 0x07060a, 0.78).setScrollFactor(0);
+    const card = this.add.rectangle(w / 2, h / 2, Math.min(440, w - 24), 250, 0x14110c).setStrokeStyle(2, 0xd4b56a).setScrollFactor(0);
+    const head = this.add.text(w / 2, h / 2 - 96, title, { fontFamily: TITLE, fontSize: "22px", color: "#f0e2b0" }).setOrigin(0.5).setScrollFactor(0);
+    const copy = this.add.text(w / 2, h / 2 - 48, body, {
+      fontFamily: FONT, fontSize: "14px", color: "#d9d3c4", align: "center", wordWrap: { width: Math.min(400, w - 48) },
+    }).setOrigin(0.5).setScrollFactor(0);
+    box.add([dim, card, head, copy]);
+    buttons.forEach((b, i) => {
+      const x = w / 2 + (i - (buttons.length - 1) / 2) * 120;
+      const y = h / 2 + 72;
+      const hit = this.add.rectangle(x, y, 108, 36, b.pay ? 0x3a2412 : 0x1a1610).setStrokeStyle(1, 0xf0d080, 0.8).setScrollFactor(0).setInteractive({ useHandCursor: true });
+      const label = this.add.text(x, y, b.label, { fontFamily: TITLE, fontSize: "12px", color: "#f0e2b0" }).setOrigin(0.5).setScrollFactor(0);
+      hit.on("pointerup", () => { this.paused = false; box.destroy(); this.panel = null; b.fn(); });
+      box.add([hit, label]);
+    });
+    this.panel = box;
+  }
+  openWipe() {
+    const s = compute();
+    const miss = bestMissing(this.tier);
+    const offer = miss
+      ? `${miss.name} is the biggest swing you are missing.\n${miss.gap ? `${miss.gap} marks short · ${miss.med} medallions` : "You can buy it with marks."}`
+      : "Your set for this tier is complete.";
+    this.openPanel("YOU DIED", `Swing ${s.swing.toFixed(2)}s\n${offer}`, [
+      { label: "GRIND", fn: () => this.recover() },
+      { label: miss && miss.gap ? "PAY" : "VENDOR", pay: true, fn: () => this.payOrVendor(miss) },
+    ]);
+  }
+  openClear() {
+    const miss = bestMissing(this.tier);
+    const body = miss
+      ? `${marksOf(this.tier)} ${TIERS[this.tier].name} marks.\n${miss.name}${miss.gap ? ` · ${miss.med} medallions finishes it` : " · you have the marks"}`
+      : `${TIERS[this.tier].inst} is clear. The set is yours.`;
+    this.openPanel(TIERS[this.tier].inst.toUpperCase(), body, [
+      { label: "HALL", fn: () => this.scene.start("mall") },
+      { label: miss && miss.gap ? "PAY" : "VENDOR", pay: true, fn: () => { if (miss && miss.gap) coverPiece(this.tier, miss.slot); this.scene.start("vendor", { tier: this.tier }); } },
+    ]);
+  }
+  recover() {
+    this.roomIndex = this.checkpoint;
+    this.doorOpen = false;
+    const st = compute();
+    this.hp = st.hp;
+    this.maxHp = st.hp;
+    this.shownHp = st.hp;
+    this.buildRoom(false);
+  }
+  payOrVendor(miss) {
+    if (!miss) return this.scene.start("vendor", { tier: this.tier });
+    if (!miss.gap) return this.scene.start("vendor", { tier: this.tier });
+    const msg = coverPiece(this.tier, miss.slot);
+    this.toast(msg);
+    if (profile.owned.includes(`T${this.tier}_${miss.slot}`)) this.recover();
+  }
   update(_, dtMs) {
+    if (this.paused) return;
     const dt = Math.min(0.05, dtMs / 1000);
     const { w, h } = this.view();
     const s = compute();
@@ -572,14 +643,25 @@ class DungeonScene extends Phaser.Scene {
       this.player.setScale(this.heroScale);
       this.player.setRotation(0);
       const moving = mag > 0.15;
-      const want = moving ? "hero-walk" : "hero-idle";
+      const set = this.heroSet();
+      const want = moving ? set.walk : set.idle;
       if (this.player.anims.currentAnim?.key !== want) this.player.play(want);
+      const cls = profile.classId || "ironblade";
+      if (cls === "ironblade" || cls === "spellweave" || cls === "shadestep") this.player.clearTint();
+      else this.player.setTint(Phaser.Display.Color.HexStringToColor(classOf().color).color);
       if (moving && this.time.now > (this.nextStep || 0)) {
         this.nextStep = this.time.now + 320;
         sfx("step");
       }
     }
     this.player.setDepth(6 + this.player.y * 0.01);
+    if (this.gearGlow) {
+      const hand = itemOf(profile.equipped.mainhand);
+      const owned = SLOTS.filter((slot) => (itemOf(profile.equipped[slot])?.tier || 0) >= this.tier).length;
+      this.gearGlow.setPosition(this.player.x, this.player.y - 6);
+      this.gearGlow.setFillStyle(TIERS[hand?.tier || 0].color, Math.min(0.4, 0.08 + owned / 28));
+      this.gearGlow.setScale(0.8 + owned / 10);
+    }
     const ox = (this.player.x - w / 2) * 0.08;
     const oy = (this.player.y - h * 0.48) * 0.06;
     this.roomArt.setPosition(w / 2 - ox, h / 2 - oy);
@@ -699,24 +781,13 @@ class DungeonScene extends Phaser.Scene {
             this.cameras.main.fadeIn(140, 7, 6, 10);
           });
         } else {
-          this.toast(TIERS[this.tier].inst + " falls");
-          const trip = ++this.travelId;
-          this.time.delayedCall(450, () => {
-            if (trip !== this.travelId) return;
-            this.scene.start("mall");
-          });
+          this.openClear();
         }
       }
     }
     if (this.hp <= 0) {
-      this.toast("Wiped — back to the checkpoint");
-      this.cameras.main.flash(160, 80, 10, 10);
-      this.roomIndex = this.checkpoint;
-      this.doorOpen = false;
-      const st = compute();
-      this.hp = st.hp;
-      this.maxHp = st.hp;
-      this.buildRoom(false);
+      this.openWipe();
+      return;
     }
 
     if (!this.joy) {

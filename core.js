@@ -209,6 +209,16 @@ function coverPiece(tier, slot) {
   }
   return buyPiece(tier, slot);
 }
+function bestMissing(tier) {
+  let best = null;
+  for (const slot of slotsFor(tier)) {
+    if (profile.owned.includes(`T${tier}_${slot}`)) continue;
+    const gap = Math.max(0, markCost(tier, slot) - marksOf(tier));
+    const share = SHARE[slot] || 0;
+    if (!best || share > best.share) best = { slot, gap, med: gap * medPerMark(tier), share, name: SLOT_NAME[slot] };
+  }
+  return best;
+}
 function buyPiece(tier, slot) {
   const id = `T${tier}_${slot}`;
   if (profile.owned.includes(id)) return "Already owned";
