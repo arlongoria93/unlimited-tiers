@@ -10,12 +10,12 @@ class BootScene extends Phaser.Scene {
     this.load.spritesheet("titan", "assets/titan.png?v=21", { frameWidth: 439, frameHeight: 443 });
     this.load.image("doorimg", "assets/door.png");
     this.load.image("torchimg", "assets/torch.png");
-    this.load.image("floorimg", "assets/floor.jpg?v=20");
-    this.load.image("roomP", "assets/floor.jpg?v=20");
-    this.load.image("roomL", "assets/floor.jpg?v=20");
+    this.load.image("floorimg", "assets/floor.jpg?v=22");
+    this.load.image("roomP", "assets/room-portrait.jpg?v=22");
+    this.load.image("roomL", "assets/room-land.jpg?v=22");
     this.load.image("debris", "assets/debris.png");
     this.load.image("glow", "assets/glow.png");
-    this.load.image("mallbg", "assets/mall.jpg");
+    this.load.image("mallbg", "assets/mall.jpg?v=22");
   }
   create() {
     const clip = (key, tex, rate, repeat) => {

@@ -173,7 +173,7 @@ class DungeonScene extends Phaser.Scene {
     const ix = w * (land ? 0.08 : 0.11);
     const iy = h * 0.13;
     this.physics.world.setBounds(ix, iy, w - ix * 2, h - iy - h * 0.16);
-    this.roomArt.setTexture("floorimg");
+    this.roomArt.setTexture(land ? "roomL" : "roomP");
     this.roomArt.setPosition(w / 2, h / 2);
     this.roomArt.setScale(Math.max(w / this.roomArt.width, h / this.roomArt.height));
     this.floorDim.setPosition(0, 0).setSize(w, h).setFillStyle(0x000000, 0);
@@ -197,15 +197,6 @@ class DungeonScene extends Phaser.Scene {
     this.gloom = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0).setDepth(2);
     if (this.lamps) this.lamps.forEach((lamp) => lamp.destroy());
     this.lamps = [];
-    const spots = land
-      ? [[0.13, 0.34], [0.13, 0.7], [0.87, 0.34], [0.87, 0.7]]
-      : [[0.17, 0.28], [0.17, 0.64], [0.83, 0.3], [0.83, 0.66]];
-    spots.forEach(([sx, sy], i) => {
-      const lamp = this.add.image(w * sx, h * sy, "glow").setBlendMode(Phaser.BlendModes.ADD).setDepth(3).setAlpha(0.22);
-      lamp.setScale(Math.max(0.7, w / 520));
-      this.tweens.add({ targets: lamp, alpha: { from: 0.14, to: 0.26 }, duration: 380 + i * 90, yoyo: true, repeat: -1 });
-      this.lamps.push(lamp);
-    });
 
     const spawn = { x: w / 2, y: h * 0.72 };
     if (!keepPlayer) this.player.setPosition(spawn.x, spawn.y);
