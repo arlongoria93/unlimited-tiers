@@ -19,7 +19,7 @@ class MallScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     this.tweens.add({ targets: title, scaleX: 1.04, scaleY: 1.04, duration: 1600, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     for (let i = 0; i < 12; i++) this.riseEmber(w, h);
-    this.add.text(w / 2, land ? 38 : 58, "T I E R S", {
+    this.add.text(w / 2, land ? 38 : 58, "TIER HALL", {
       fontFamily: TITLE, fontSize: "12px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
 
@@ -41,14 +41,11 @@ class MallScene extends Phaser.Scene {
       const y = top + row * (bh + pad) + bh / 2;
       const gate = canEnter(t);
       const locked = !gate.ok && !profile.attuned[t];
-      const card = this.add.rectangle(x, y, bw, bh, locked ? 0x121018 : 0x16141c)
-        .setStrokeStyle(2, TIERS[t].color, locked ? 0.25 : 0.9)
+      const card = this.add.rectangle(x, y, bw, bh, locked ? 0x100e14 : 0x1a140c)
+        .setStrokeStyle(2, locked ? 0x3a3428 : 0xf0d080, locked ? 0.4 : 0.95)
         .setInteractive({ useHandCursor: true });
-      if (!locked) {
-        const glow = this.add.rectangle(x, y, bw + 6, bh + 6, TIERS[t].color, 0.07);
-        glow.setDepth(card.depth - 1);
-      }
-      this.add.text(x, y - 12, `T${t}`, { fontFamily: TITLE, fontSize: "15px", color: locked ? "#555" : "#f0ead8" }).setOrigin(0.5);
+      if (!locked) this.add.rectangle(x, y, bw - 6, bh - 6).setStrokeStyle(1, TIERS[t].color, 0.85);
+      this.add.text(x, y - 12, `Lv.${t}`, { fontFamily: TITLE, fontSize: "14px", color: locked ? "#665" : "#f6e7b2" }).setOrigin(0.5);
       this.add.text(x, y + 8, TIERS[t].name, { fontFamily: FONT, fontSize: "11px", color: locked ? "#555" : "#9aa8a8" }).setOrigin(0.5);
       this.add.text(x, y + 22, profile.attuned[t] ? "OPEN" : locked ? "SEALED" : "ATTUNE", {
         fontFamily: FONT, fontSize: "9px", color: profile.attuned[t] ? "#7ee0e6" : "#7a7468",

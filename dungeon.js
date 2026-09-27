@@ -73,6 +73,21 @@ class DungeonScene extends Phaser.Scene {
     this.mallBtn = this.add.rectangle(0, 0, 72, 28, 0x16120c).setStrokeStyle(1, 0xc4a15a, 0.8).setScrollFactor(0).setDepth(24).setInteractive();
     this.mallLabel = this.add.text(0, 0, "HALL", { fontFamily: TITLE, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
     this.mallBtn.on("pointerup", () => this.scene.start("mall"));
+    this.mpBg = this.add.rectangle(0, 0, 10, 6, 0x0c1824).setScrollFactor(0).setDepth(21);
+    this.mpFg = this.add.rectangle(0, 0, 10, 6, 0x3ec6e0).setOrigin(0, 0.5).setScrollFactor(0).setDepth(22);
+    this.skillSlots = [0, 1, 2, 3].map((i) => {
+      const slot = this.add.rectangle(0, 0, 34, 34, i === 0 ? 0x3a2412 : 0x121018)
+        .setStrokeStyle(2, i === 0 ? 0xf0d080 : 0x6a5a40, i === 0 ? 1 : 0.4)
+        .setScrollFactor(0).setDepth(24);
+      const label = this.add.text(0, 0, ["ATK", "Q", "E", "R"][i], {
+        fontFamily: TITLE, fontSize: "11px", color: i === 0 ? "#f0d080" : "#6a6458",
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(25);
+      const shade = this.add.rectangle(0, 0, 30, 0, 0x07060a, 0.72).setOrigin(0.5, 0).setScrollFactor(0).setDepth(25);
+      return { slot, label, shade };
+    });
+    this.nameTag = this.add.text(0, 0, "DUELIST", {
+      fontFamily: TITLE, fontSize: "12px", color: "#f6e7b2", stroke: "#140e08", strokeThickness: 4,
+    }).setOrigin(0.5, 1).setDepth(12);
     this.shownHp = s.hp;
     this.ghostHp = s.hp;
     this._barW = barW;
@@ -93,17 +108,28 @@ class DungeonScene extends Phaser.Scene {
   fitHud() {
     const { w, h } = this.view();
     const bw = this._barW();
-    this.hudBar.setPosition(w / 2, h - 86).setSize(w, 86);
-    this.hint.setPosition(w / 2, h - 74);
-    this.hudH.setPosition(16, h - 52);
-    const barY = h - 26;
-    this.hpBg.setPosition(w / 2, barY).setSize(bw, 12);
-    this.hpGhost.setPosition(w / 2 - bw / 2, barY).setSize(bw, 12);
+    this.mallBtn.setPosition(w - 48, h - 108);
+    this.mallLabel.setPosition(w - 48, h - 108);
+    const barY = h - 36;
+    this.hpBg.setPosition(w / 2, barY).setSize(bw, 14);
+    this.hpGhost.setPosition(w / 2 - bw / 2, barY).setSize(bw, 14);
     this.hpFg.setPosition(w / 2 - bw / 2, barY);
-    this.hpFg.height = 12;
-    this.hpFrame.setPosition(w / 2, barY).setSize(bw + 8, 18);
-    this.mallBtn.setPosition(w - 48, h - 52);
-    this.mallLabel.setPosition(w - 48, h - 52);
+    this.hpFg.height = 14;
+    this.hpFrame.setPosition(w / 2, barY).setSize(bw + 8, 20);
+    this.mpBg.setPosition(w / 2, barY + 12).setSize(bw, 5);
+    this.mpFg.setPosition(w / 2 - bw / 2, barY + 12);
+    this.mpFg.height = 5;
+    const slotY = h - 62;
+    const slotStart = w / 2 - (4 * 40) / 2 + 20;
+    this.skillSlots.forEach((sk, i) => {
+      const x = slotStart + i * 40;
+      sk.slot.setPosition(x, slotY);
+      sk.label.setPosition(x, slotY);
+      sk.shade.setPosition(x, slotY - 15);
+    });
+    this.hudBar.setPosition(w / 2, h - 128).setSize(w, 128);
+    this.hint.setPosition(w / 2, h - 108);
+    this.hudH.setPosition(16, h - 108);
     const bbw = Math.min(300, w * 0.72);
     this.bossName.setPosition(w / 2, 16);
     this.bossTrack.setPosition(w / 2, 36).setSize(bbw, 8);
@@ -244,7 +270,9 @@ class DungeonScene extends Phaser.Scene {
       onComplete: () => g.destroy(),
     });
     this.sparks.emitParticleAt(best.sprite.x, best.sprite.y - 10, 8);
-    this.floatText(best.sprite.x, best.sprite.y - 22, `${s.hit}`, "#fff4d0");
+    this.floatText(best.sprite.x, best.sprite.y - 22, `${s.hit}`, "#ffe27a");
+    this.skillSlots[0].slot.setScale(1.18);
+    this.tweens.add({ targets: this.skillSlots[0].slot, scale: 1, duration: 120 });
     this.cameras.main.shake(best.hp <= 0 ? 140 : 70, best.hp <= 0 ? 0.007 : 0.003);
     tone(180 + Math.min(900, s.dps), 0.05);
     best.sprite.setTint(0xffffff);
@@ -288,8 +316,12 @@ class DungeonScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: 84, alpha: 0, delay: 1500, duration: 300, onComplete: () => t.destroy() });
   }
   floatText(x, y, text, color) {
-    const t = this.add.text(x, y, text, { fontFamily: FONT, fontSize: "13px", color, fontStyle: "700" }).setOrigin(0.5).setDepth(12);
-    this.tweens.add({ targets: t, y: y - 26, alpha: 0, duration: 420, onComplete: () => t.destroy() });
+    const t = this.add.text(x, y, text, {
+      fontFamily: TITLE, fontSize: "20px", color, fontStyle: "700",
+      stroke: "#1a0c08", strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(12);
+    t.setScale(0.6);
+    this.tweens.add({ targets: t, y: y - 36, scale: 1.15, alpha: 0, duration: 520, ease: "Cubic.easeOut", onComplete: () => t.destroy() });
   }
   update(_, dtMs) {
     const dt = Math.min(0.05, dtMs / 1000);
@@ -447,6 +479,7 @@ class DungeonScene extends Phaser.Scene {
     this.joyNub.setVisible(this.stick.down).setPosition(this.stick.sx + this.stick.ax * 26, this.stick.sy + this.stick.ay * 26);
 
     if (this.playerShadow) this.playerShadow.setPosition(this.player.x, this.player.y + 6);
+    if (this.nameTag) this.nameTag.setPosition(this.player.x, this.player.y - this.player.displayHeight - 4);
 
     const bw = this._barW();
     const ratio = Math.max(0, this.hp / this.maxHp);
@@ -456,10 +489,14 @@ class DungeonScene extends Phaser.Scene {
     this._prevHp = this.hp;
     this.hpFg.width = bw * Math.max(0, this.shownHp / this.maxHp);
     this.hpGhost.width = bw * Math.max(0, this.ghostHp / this.maxHp);
-    this.hpFg.setFillStyle(ratio < 0.25 ? 0xff3a32 : 0x9a1a18);
-    const pulse = ratio < 0.25 ? 0.45 + Math.sin(this.time.now / 110) * 0.4 : 0.85;
-    this.hpFrame.setStrokeStyle(2, ratio < 0.25 ? 0xff5048 : 0xc4a15a, pulse);
-    this.hudH.setText(`SWING  ${s.swing.toFixed(2)}s`);
+    this.hpFg.setFillStyle(ratio < 0.25 ? 0xff3a32 : 0xc42018);
+    const pulse = ratio < 0.25 ? 0.45 + Math.sin(this.time.now / 110) * 0.4 : 0.9;
+    this.hpFrame.setStrokeStyle(2, ratio < 0.25 ? 0xff5048 : 0xf0d080, pulse);
+    const cd = Math.max(0, this.nextSwing - this.time.now / 1000);
+    const frac = s.swing > 0 ? Math.min(1, cd / s.swing) : 0;
+    this.skillSlots[0].shade.height = 30 * frac;
+    this.mpFg.width = bw * (1 - frac);
+    this.hudH.setText(`${(s.haste * 100).toFixed(0)}%`);
     const boss = this.mobs.find((m) => m.kind === "boss" && m.hp > 0);
     const showBoss = !!boss;
     this.bossTrack.setVisible(showBoss);
