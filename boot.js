@@ -30,7 +30,7 @@ new Phaser.Game({
   backgroundColor: "#07060a",
   scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
   physics: { default: "arcade", arcade: { debug: false } },
-  scene: [BootScene, MallScene, DungeonScene, ShopScene, VendorScene],
+  scene: [BootScene, MallScene, DungeonScene, ShopScene, VendorScene, ForgeScene, BoardScene],
   audio: { noAudio: true },
   render: { antialias: true, pixelArt: false, roundPixels: false },
 });

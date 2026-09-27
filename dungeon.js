@@ -1,10 +1,14 @@
 class DungeonScene extends Phaser.Scene {
   constructor() { super("dungeon"); }
-  init(data) { this.tier = data.tier || 1; }
+  init(data) {
+    this.tier = data.tier || 1;
+    this.forge = !!data.forge;
+    this.world = !!data.world;
+  }
   create() {
     bootTextures(this);
     const T = TIERS[this.tier];
-    this.roomsTotal = T.rooms;
+    this.roomsTotal = this.world ? 1 : this.forge ? 3 : T.rooms;
     this.roomIndex = 0;
     this.checkpoint = 0;
     this.enrageAt = 0;
@@ -77,21 +81,21 @@ class DungeonScene extends Phaser.Scene {
   fitHud() {
     const { w, h } = this.view();
     const bw = this._barW();
-    this.hudBar.setPosition(w / 2, 0).setSize(w, 74);
-    this.hint.setPosition(w / 2, 26);
-    this.hpBg.setPosition(w / 2, 56).setSize(bw, 8);
-    this.hpFg.setPosition(w / 2 - bw / 2, 56);
-    this.hpFrame.setPosition(w / 2, 56).setSize(bw + 4, 12);
-    this.mallBtn.setPosition(62, h - 28);
-    this.mallLabel.setPosition(62, h - 28);
+    this.hudBar.setPosition(w / 2, h - 78).setSize(w, 78);
+    this.hudH.setPosition(16, h - 70);
+    this.hint.setPosition(w / 2, h - 50);
+    this.hpBg.setPosition(w / 2, h - 22).setSize(bw, 8);
+    this.hpFg.setPosition(w / 2 - bw / 2, h - 22);
+    this.hpFrame.setPosition(w / 2, h - 22).setSize(bw + 4, 12);
+    this.mallBtn.setPosition(w - 62, 28);
+    this.mallLabel.setPosition(w - 62, 28);
     this.drawVignette(TIERS[this.tier].fog);
   }
   drawVignette(fog) {
     const { w, h } = this.view();
     this.vignette.clear();
-    this.vignette.fillStyle(fog, 0.16);
-    this.vignette.fillRect(0, 0, w, 70);
-    this.vignette.fillRect(0, h - 56, w, 56);
+    this.vignette.fillStyle(fog, 0.2);
+    this.vignette.fillRect(0, h - 86, w, 86);
   }
   buildRoom(keepPlayer) {
     const { w, h } = this.view();
@@ -141,7 +145,7 @@ class DungeonScene extends Phaser.Scene {
     }
 
     const packs = [];
-    if (last) {
+    if (this.world || last) {
       packs.push({ kind: "boss", x: w * 0.5, y: land ? h * 0.42 : h * 0.36, n: 1 });
     } else if (land) {
       packs.push({ kind: "trash", x: w * 0.32, y: h * 0.42, n: 2 });
@@ -170,7 +174,7 @@ class DungeonScene extends Phaser.Scene {
         const bar = this.add.rectangle(x - 18, head, 36, 4, 0xc44).setOrigin(0, 0.5).setDepth(8);
         this.mobs.push({
           sprite, ring, bar, barBg, kind: p.kind, homeX: x, homeY: y,
-          hp: enemyHp(this.tier, p.kind), max: enemyHp(this.tier, p.kind),
+          hp: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1), max: enemyHp(this.tier, p.kind) * (this.world ? 2 : 1),
           state: "idle", pull, leash: p.kind === "boss" ? 280 : 210,
         });
       }
@@ -271,6 +275,7 @@ class DungeonScene extends Phaser.Scene {
         this.tweens.add({ targets: slash, alpha: 0, scale: 1.4, duration: 140, onComplete: () => slash.destroy() });
         this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 7);
         this.floatText(best.sprite.x, best.sprite.y - 18, `${s.hit}`, "#fff4d0");
+        tone(220 + Math.min(800, s.dps), 0.05);
         if (best.hp <= 0) {
           this.sparks.emitParticleAt(best.sprite.x, best.sprite.y, 16);
           best.state = "dead";
@@ -278,9 +283,8 @@ class DungeonScene extends Phaser.Scene {
           if (best.ring) best.ring.destroy();
           if (best.bar) best.bar.destroy();
           if (best.barBg) best.barBg.destroy();
-          const gain = best.kind === "boss" ? 12 : best.kind === "elite" ? 3 : 1;
-          addMarks(this.tier, gain);
-          this.floatText(best.sprite.x, best.sprite.y - 36, `+${gain} ${TIERS[this.tier].name}`, "#7ee0e6");
+          const mode = this.forge ? "forge" : this.world ? "world" : "pit";
+          this.floatText(best.sprite.x, best.sprite.y - 36, grantKill(best.kind, this.tier, mode), "#7ee0e6");
         }
       }
     }
@@ -294,11 +298,19 @@ class DungeonScene extends Phaser.Scene {
         this.door.clearTint();
         this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
         if (this.roomIndex === this.roomsTotal - 1) {
-          profile.currentTier = Math.max(profile.currentTier, this.tier);
-          const nxt = this.tier === 8 ? 9 : this.tier + 1;
-          if (nxt <= 16 && highestWeapon() >= (nxt === 9 ? 7 : this.tier)) profile.attuned[nxt] = true;
-          persist();
-          this.toast(`${marksOf(this.tier)} ${TIERS[this.tier].name} Marks — buy the set at the vendor`);
+          if (this.forge) {
+            this.toast(`${profile.cinders || 0} cinders — buy a brand at the forge`);
+          } else if (this.world) {
+            profile.lastWorld = Date.now();
+            profile.medallions += 8;
+            persist();
+            this.toast("Terrace down. Honor is on the board.");
+          } else {
+            profile.currentTier = Math.max(profile.currentTier, this.tier);
+            profile.lastClear = Date.now();
+            persist();
+            this.toast(`${marksOf(this.tier)} ${TIERS[this.tier].name} Marks — the vendor`);
+          }
         } else this.toast("Room clear — walk through the door");
       }
       if (this.doorOpen && py < 90) {

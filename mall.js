@@ -38,7 +38,8 @@ class MallScene extends Phaser.Scene {
       const col = (t - 1) % cols, row = Math.floor((t - 1) / cols);
       const x = pad + col * (bw + pad) + bw / 2;
       const y = top + row * (bh + pad) + bh / 2;
-      const locked = !profile.attuned[t] && highestWeapon() < (t === 9 ? 7 : t - 1) && profile.medallions < 20 * t;
+      const gate = canEnter(t);
+      const locked = !gate.ok && !profile.attuned[t];
       const card = this.add.rectangle(x, y, bw, bh, locked ? 0x121018 : 0x16141c)
         .setStrokeStyle(2, TIERS[t].color, locked ? 0.25 : 0.9)
         .setInteractive({ useHandCursor: true });
@@ -57,8 +58,8 @@ class MallScene extends Phaser.Scene {
     }
 
     this.btn(w * 0.18, h - 28, "VENDOR", () => this.scene.start("vendor"));
-    this.btn(w * 0.5, h - 28, "DAILIES", () => this.dailies());
-    this.btn(w * 0.82, h - 28, "EQUIP BEST", () => this.equipBest());
+    this.btn(w * 0.5, h - 28, "FORGE", () => this.scene.start("forge"));
+    this.btn(w * 0.82, h - 28, "BOARD", () => this.scene.start("board"));
 
     const s0 = compute();
     this.formula = this.add.text(16, h - 118, "swing = max(0.20,  1 / (1 + haste))", {
@@ -97,16 +98,11 @@ class MallScene extends Phaser.Scene {
     r.on("pointerup", fn);
   }
   enter(t, locked) {
-    if (locked) return this.toast("Sealed");
-    if (!profile.attuned[t]) {
-      const need = t === 9 ? 7 : t - 1;
-      if (highestWeapon() < need) {
-        const cost = 20 * t;
-        if (profile.medallions < cost) return this.toast(`Need T${need} blade or ${cost} med`);
-        profile.medallions -= cost;
-      }
-      profile.attuned[t] = true; persist();
-    }
+    const gate = canEnter(t);
+    if (!profile.attuned[t] && !gate.ok) return this.toast(gate.why);
+    if (!profile.attuned[t] && gate.pay) profile.medallions -= 20 * t;
+    profile.attuned[t] = true;
+    persist();
     this.cameras.main.fadeOut(180, 7, 6, 10);
     previewTier = null;
     this.time.delayedCall(180, () => this.scene.start("dungeon", { tier: t }));
@@ -227,21 +223,28 @@ class VendorScene extends Phaser.Scene {
     this.add.text(w / 2, 44, `${marksOf(t)} ${T.name} Marks   ·   only from ${T.inst}`, {
       fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
     }).setOrigin(0.5, 0);
-    this.add.text(w / 2, 66, "Marks from this tier only. They do not buy the next set.", {
-      fontFamily: FONT, fontSize: "11px", color: "#8a8680", wordWrap: { width: w - 32 },
+    const note = t === 1 ? "The blade is not here. Farm cinders at the Forge."
+      : t === 8 ? "Optional and mean. Offset only. T9 still keys off a T7 blade."
+      : NO_WEAPON.has(t) ? "No new blade. Your last weapon keeps swinging."
+      : t === 12 ? `Upgrade Marks ${profile.upgradeMarks || 0}. The boss drops them. Honor can buy one.`
+      : "Marks from this tier only.";
+    this.add.text(w / 2, 66, note, {
+      fontFamily: FONT, fontSize: "11px", color: "#8a8680", wordWrap: { width: w - 32 }, align: "center",
     }).setOrigin(0.5, 0);
 
-    SLOTS.forEach((slot, i) => {
-      const y = 108 + i * 58;
+    const slots = slotsFor(t);
+    slots.forEach((slot, i) => {
+      const y = 104 + i * 52;
       const id = `T${t}_${slot}`;
       const owned = profile.owned.includes(id);
       const cost = markCost(t, slot);
-      this.add.rectangle(w / 2, y, w - 24, 50, 0x141218).setStrokeStyle(1, owned ? 0x1e5a32 : 0x3a3428);
+      const needsMark = t === 12 && slot === "weapon";
+      this.add.rectangle(w / 2, y, w - 24, 46, 0x141218).setStrokeStyle(1, owned ? 0x1e5a32 : 0x3a3428);
       this.add.text(24, y - 8, slot.toUpperCase(), { fontFamily: TITLE, fontSize: "13px", color: "#efeae0" }).setOrigin(0, 0.5);
-      const share = Math.round(SHARE[slot] * 100);
-      this.add.text(24, y + 12, `${share}% of this tier's haste`, { fontFamily: FONT, fontSize: "11px", color: "#8a8680" }).setOrigin(0, 0.5);
-      const label = owned ? "OWNED" : `${cost} marks`;
-      const b = this.add.rectangle(w - 78, y, 120, 32, owned ? 0x14301c : 0x2a2214)
+      const share = slot === "offset" ? "small extra haste" : `${Math.round(SHARE[slot] * 100)}% of this tier`;
+      this.add.text(24, y + 10, share, { fontFamily: FONT, fontSize: "11px", color: "#8a8680" }).setOrigin(0, 0.5);
+      const label = owned ? "OWNED" : needsMark ? `${cost} + mark` : `${cost} marks`;
+      const b = this.add.rectangle(w - 78, y, 120, 30, owned ? 0x14301c : 0x2a2214)
         .setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
       this.add.text(w - 78, y, label, { fontFamily: FONT, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
       if (!owned) b.on("pointerup", () => { this.toast(buyPiece(t, slot)); this.time.delayedCall(280, () => this.scene.restart({ tier: t })); });
@@ -262,6 +265,127 @@ class VendorScene extends Phaser.Scene {
       fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
     }).setOrigin(0.5).setDepth(5);
     this.time.delayedCall(900, () => t.destroy());
+  }
+}
+
+class ForgeScene extends Phaser.Scene {
+  constructor() { super("forge"); }
+  create() {
+    const { width: w, height: h } = this.scale;
+    this.cameras.main.setBackgroundColor(0x07060a);
+    const bg = this.add.image(w / 2, h / 2, "mallbg");
+    bg.setScale(Math.max(w / bg.width, h / bg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.7).setOrigin(0);
+    this.add.text(w / 2, 28, "ELEMENT FORGE", { fontFamily: TITLE, fontSize: "22px", color: "#e8d59a" }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 58, `${profile.cinders || 0} cinders   ·   any brand is the T1 blade`, {
+      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
+    }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 80, profile.element ? `Carried: ${profile.element}` : "Ember Pit sells the armor. The forge sells the sword.", {
+      fontFamily: FONT, fontSize: "12px", color: "#8a8680", wordWrap: { width: w - 36 }, align: "center",
+    }).setOrigin(0.5, 0);
+    ELEMENTS.forEach((name, i) => {
+      const y = 140 + i * 58;
+      this.add.rectangle(w / 2, y, w - 28, 50, 0x141218).setStrokeStyle(1, 0x3a3428);
+      this.add.text(28, y, name, { fontFamily: TITLE, fontSize: "16px", color: "#efeae0" }).setOrigin(0, 0.5);
+      const b = this.add.rectangle(w - 78, y, 110, 32, 0x2a2214).setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
+      this.add.text(w - 78, y, "24 cinders", { fontFamily: FONT, fontSize: "12px", color: "#e8d59a" }).setOrigin(0.5);
+      b.on("pointerup", () => { this.toast(buyElement(i)); this.time.delayedCall(400, () => this.scene.restart()); });
+    });
+    this.btn(w * 0.28, h - 28, "ENTER", () => this.scene.start("dungeon", { tier: 1, forge: true }));
+    this.btn(w * 0.72, h - 28, "MALL", () => this.scene.start("mall"));
+  }
+  btn(x, y, label, fn) {
+    const r = this.add.rectangle(x, y, 140, 40, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.5).setInteractive({ useHandCursor: true });
+    this.add.text(x, y, label, { fontFamily: TITLE, fontSize: "13px", color: "#e8d59a" }).setOrigin(0.5);
+    r.on("pointerup", fn);
+  }
+  toast(msg) {
+    const t = this.add.text(this.scale.width / 2, 112, msg, {
+      fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
+    }).setOrigin(0.5).setDepth(5);
+    this.time.delayedCall(900, () => t.destroy());
+  }
+}
+
+class BoardScene extends Phaser.Scene {
+  constructor() { super("board"); }
+  create() {
+    const { width: w, height: h } = this.scale;
+    this.cameras.main.setBackgroundColor(0x07060a);
+    const bg = this.add.image(w / 2, h / 2, "mallbg");
+    bg.setScale(Math.max(w / bg.width, h / bg.height));
+    this.add.rectangle(0, 0, w, h, 0x07060a, 0.72).setOrigin(0);
+    this.add.text(w / 2, 24, "MALL BOARD", { fontFamily: TITLE, fontSize: "22px", color: "#e8d59a" }).setOrigin(0.5, 0);
+    this.add.text(w / 2, 54, `Med ${profile.medallions}    Honor ${profile.honor || 0}    Marks ${profile.upgradeMarks || 0}`, {
+      fontFamily: FONT, fontSize: "13px", color: "#7ee0e6",
+    }).setOrigin(0.5, 0);
+    const rows = [
+      ["World terrace", "One boss. Honor.", () => this.scene.start("dungeon", { tier: Math.max(1, profile.currentTier || 1), world: true })],
+      ["Buy Upgrade Mark", "40 honor", () => this.buyMark()],
+      ["Pit tribute", this.ready("pit") ? "Claim" : "Clear a pit first", () => this.claim("pit")],
+      ["Terrace tribute", this.ready("world") ? "Claim" : "Kill the terrace", () => this.claim("world")],
+      ["Wolf rite", profile.rite ? "Kept" : profile.wolfShard ? "Turn in at T14" : "Find the shard in Wolfkeep", () => this.rite()],
+      ["Equip best", "Wear highest", () => { this.equip(); this.scene.restart(); }],
+    ];
+    rows.forEach((row, i) => {
+      const y = 100 + i * 54;
+      this.add.rectangle(w / 2, y, w - 24, 46, 0x141218).setStrokeStyle(1, 0x3a3428);
+      this.add.text(24, y, row[0], { fontFamily: FONT, fontSize: "14px", color: "#efeae0" }).setOrigin(0, 0.5);
+      const b = this.add.rectangle(w - 86, y, 124, 30, 0x2a2214).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
+      this.add.text(w - 86, y, row[1], { fontFamily: FONT, fontSize: "11px", color: "#e8d59a" }).setOrigin(0.5);
+      b.on("pointerup", row[2]);
+    });
+    const back = this.add.rectangle(w / 2, h - 32, 140, 38, 0x1a1610).setStrokeStyle(1, 0xd4b56a, 0.45).setInteractive({ useHandCursor: true });
+    this.add.text(w / 2, h - 32, "MALL", { fontFamily: TITLE, fontSize: "13px", color: "#e8d59a" }).setOrigin(0.5);
+    back.on("pointerup", () => this.scene.start("mall"));
+  }
+  ready(key) {
+    const stamp = key === "pit" ? profile.lastClear : profile.lastWorld;
+    return stamp && Date.now() - stamp < 20 * 3600 * 1000 && Date.now() - (profile.claimed?.[key] || 0) > 20 * 3600 * 1000;
+  }
+  claim(key) {
+    if (!this.ready(key)) return this.toast("Not ready");
+    const pay = 10 + (profile.currentTier || 1) * 2;
+    profile.medallions += pay;
+    profile.claimed = profile.claimed || {};
+    profile.claimed[key] = Date.now();
+    persist();
+    this.toast(`+${pay} medallions`);
+    this.time.delayedCall(400, () => this.scene.restart());
+  }
+  buyMark() {
+    if ((profile.honor || 0) < 40) return this.toast("Need 40 honor");
+    profile.honor -= 40;
+    profile.upgradeMarks = (profile.upgradeMarks || 0) + 1;
+    persist();
+    this.toast("Upgrade Mark");
+    this.time.delayedCall(400, () => this.scene.restart());
+  }
+  rite() {
+    if (profile.rite) return this.toast("Already kept");
+    if (!profile.wolfShard) return this.toast("The shard is in Wolfkeep");
+    if (highestWeapon() < 14) return this.toast("Bring a T14 blade");
+    profile.rite = true;
+    persist();
+    this.toast("+3% haste, permanent");
+    this.time.delayedCall(500, () => this.scene.restart());
+  }
+  equip() {
+    for (const slot of SLOTS) {
+      let best = profile.equipped[slot], bt = itemOf(best)?.tier || 0;
+      for (const id of profile.owned) {
+        const it = itemOf(id);
+        if (it && it.slot === slot && it.tier >= bt) { best = id; bt = it.tier; }
+      }
+      if (best) profile.equipped[slot] = best;
+    }
+    persist();
+  }
+  toast(msg) {
+    const t = this.add.text(this.scale.width / 2, 78, msg, {
+      fontFamily: FONT, fontSize: "13px", color: "#e8d59a", backgroundColor: "#1a140c", padding: { x: 10, y: 6 },
+    }).setOrigin(0.5).setDepth(5);
+    this.time.delayedCall(1000, () => t.destroy());
   }
 }
 

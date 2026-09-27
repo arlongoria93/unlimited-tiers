@@ -21,8 +21,10 @@ const TIERS = {
   16: { name: "Crown", inst: "Crown of the First", haste: 3.80, hit: 50, hp: 1600, color: 0xf0d060, rooms: 9, floor: 0x1c180c, fog: 0x4a3a10 },
 };
 
-const SLOTS = ["weapon", "armor", "ring", "trinket"];
-const SHARE = { weapon: 0.5, armor: 0.25, ring: 0.125, trinket: 0.125 };
+const SLOTS = ["weapon", "armor", "ring", "trinket", "offset"];
+const SHARE = { weapon: 0.5, armor: 0.25, ring: 0.125, trinket: 0.125, offset: 0 };
+const NO_WEAPON = new Set([5, 6, 7, 8, 9, 10, 11, 15]);
+const ELEMENTS = ["Ember Brand", "Tide Brand", "Thorn Brand", "Iron Brand"];
 const W = { early: [0.28, 0.28, 0.22, 0.22], mid: [0.22, 0.26, 0.26, 0.26], late: [0.16, 0.24, 0.3, 0.3], wall: [0.12, 0.22, 0.33, 0.33], crown: [0.1, 0.18, 0.36, 0.36] };
 
 function band(t) { return t <= 4 ? "early" : t <= 8 ? "mid" : t <= 12 ? "late" : t <= 15 ? "wall" : "crown"; }
@@ -49,6 +51,8 @@ function compute() {
     ts[slot] = it.tier;
   }
   if (profile.vip) haste += 0.05;
+  if (profile.rite) haste += 0.03;
+  if (profile.equipped.offset) haste += 0.04;
   return { haste, hit, hp, swing: swingTime(haste), dps: hit / swingTime(haste), preview: null };
 }
 
@@ -62,7 +66,7 @@ function enemyHp(tier, kind) {
   return Math.floor(expectedDps(tier) * secs);
 }
 function itemOf(id) {
-  const m = /^T(\d+)_(weapon|armor|ring|trinket)$/.exec(id);
+  const m = /^T(\d+)_(weapon|armor|ring|trinket|offset)$/.exec(id);
   return m ? { tier: +m[1], slot: m[2], id } : null;
 }
 function blankProfile() {
@@ -77,8 +81,31 @@ function blankProfile() {
 let profile = Object.assign(blankProfile(), JSON.parse(localStorage.getItem("ut_phaser") || "{}"));
 const persist = () => localStorage.setItem("ut_phaser", JSON.stringify(profile));
 
+function slotsFor(tier) {
+  if (tier === 8) return ["offset"];
+  const slots = [];
+  if (tier !== 1 && !NO_WEAPON.has(tier)) slots.push("weapon");
+  slots.push("armor", "ring", "trinket");
+  if (tier >= 13) slots.push("offset");
+  return slots;
+}
+function hasOffsetFor(tier) {
+  if (tier < 14) return true;
+  return profile.owned.some((id) => {
+    const it = itemOf(id);
+    return it && it.slot === "offset" && (it.tier === 8 || it.tier >= tier - 1);
+  });
+}
+function canEnter(t) {
+  if (profile.attuned[t]) return { ok: true, pay: false, why: "" };
+  const need = t === 9 ? 7 : t - 1;
+  if (!hasOffsetFor(t)) return { ok: false, pay: false, why: "Need Vault offset or the previous offset" };
+  const pay = highestWeapon() < need;
+  if (pay && profile.medallions < 20 * t) return { ok: false, pay: false, why: `Need a T${need} blade or ${20 * t} med` };
+  return { ok: true, pay, why: "" };
+}
 function markCost(tier, slot) {
-  const base = { weapon: 48, armor: 28, ring: 16, trinket: 16 }[slot] || 16;
+  const base = { weapon: 48, armor: 28, ring: 16, trinket: 16, offset: 22 }[slot] || 16;
   return base * tier;
 }
 function marksOf(tier) {
@@ -92,13 +119,52 @@ function addMarks(tier, n) {
 function buyPiece(tier, slot) {
   const id = `T${tier}_${slot}`;
   if (profile.owned.includes(id)) return "Already owned";
+  if (!slotsFor(tier).includes(slot)) return "Not sold here";
+  if (tier === 12 && slot === "weapon" && !(profile.upgradeMarks > 0)) return "Need an Upgrade Mark from the Titan boss";
   const cost = markCost(tier, slot);
   if (marksOf(tier) < cost) return `Need ${cost - marksOf(tier)} more`;
   profile.marks[tier] -= cost;
+  if (tier === 12 && slot === "weapon") profile.upgradeMarks--;
   profile.owned.push(id);
   profile.equipped[slot] = id;
   persist();
   return `Bought T${tier} ${slot}`;
+}
+function buyElement(index) {
+  const cost = 24;
+  const have = profile.cinders || 0;
+  if (have < cost) return `Need ${cost - have} cinders`;
+  profile.cinders = have - cost;
+  profile.element = ELEMENTS[index];
+  if (!profile.owned.includes("T1_weapon")) profile.owned.push("T1_weapon");
+  profile.equipped.weapon = "T1_weapon";
+  persist();
+  return profile.element;
+}
+function grantKill(kind, tier, mode) {
+  const gain = kind === "boss" ? 12 : kind === "elite" ? 3 : 1;
+  if (mode === "forge") {
+    profile.cinders = (profile.cinders || 0) + gain;
+    persist();
+    return `+${gain} cinder`;
+  }
+  if (mode === "world") {
+    profile.honor = (profile.honor || 0) + gain;
+    persist();
+    return `+${gain} honor`;
+  }
+  addMarks(tier, gain);
+  if (kind === "boss" && tier === 2 && !profile.wolfShard) {
+    profile.wolfShard = true;
+    persist();
+    return `+${gain}  ·  Wolf Shard`;
+  }
+  if (kind === "boss" && tier === 12) {
+    profile.upgradeMarks = (profile.upgradeMarks || 0) + 1;
+    persist();
+    return `+${gain}  ·  Upgrade Mark`;
+  }
+  return `+${gain} ${TIERS[tier].name}`;
 }
 
 function highestWeapon() {
@@ -152,8 +218,21 @@ function dropPiece(tier, src) {
   return msg;
 }
 
-function paintCircle(g, x, y, r, color, a = 1) {
-  g.fillStyle(color, a); g.fillCircle(x, y, r);
+function tone(freq, dur) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  const ctx = tone.ctx || (tone.ctx = new AC());
+  if (ctx.state === "suspended") ctx.resume();
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = "square";
+  o.frequency.value = freq;
+  g.gain.value = 0.025;
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+  o.stop(ctx.currentTime + dur);
 }
 function makeTex(scene, key, w, h, draw) {
   const g = scene.make.graphics({ add: false });
