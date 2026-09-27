@@ -341,7 +341,8 @@ class DungeonScene extends Phaser.Scene {
     }
 
     const bw = this._barW();
-    this.hudH.setText(`Haste ${(s.haste * 100).toFixed(0)}%   Swing ${s.swing.toFixed(2)}s   HP ${Math.max(0, Math.ceil(this.hp))}`);
+    const bossSec = enemyHp(this.tier, "boss") / Math.max(0.01, s.dps);
+    this.hudH.setText(`Swing ${s.swing.toFixed(2)}s  Hit ${s.hit}  DPS ${s.dps.toFixed(0)}  boss ~${bossSec.toFixed(0)}s`);
     this.hpFg.width = bw * Math.max(0, this.hp / this.maxHp);
     this.hpFg.setFillStyle(this.hp / this.maxHp < 0.3 ? 0xe04040 : 0xc44);
   }
