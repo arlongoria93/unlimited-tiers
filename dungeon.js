@@ -297,7 +297,9 @@ class DungeonScene extends Phaser.Scene {
           if (best.ring) best.ring.destroy();
           if (best.bar) best.bar.destroy();
           if (best.barBg) best.barBg.destroy();
-          profile.medallions += best.kind === "boss" ? 5 : best.kind === "elite" ? 2 : 1;
+          const gain = best.kind === "boss" ? 12 : best.kind === "elite" ? 3 : 1;
+          addMarks(this.tier, gain);
+          this.floatText(best.sprite.x, best.sprite.y - 36, `+${gain} ${TIERS[this.tier].name}`, "#7ee0e6");
         }
       }
     }
@@ -310,11 +312,11 @@ class DungeonScene extends Phaser.Scene {
       this.door.setFillStyle(0x1e5a32);
       this.hp = Math.min(this.maxHp, this.hp + this.maxHp * (this.tier <= 4 ? 1 : 0.3));
       if (this.roomIndex === this.roomsTotal - 1) {
-        this.toast(dropPiece(this.tier, TIERS[this.tier].inst));
         profile.currentTier = Math.max(profile.currentTier, this.tier);
         const nxt = this.tier === 8 ? 9 : this.tier + 1;
         if (nxt <= 16 && highestWeapon() >= (nxt === 9 ? 7 : this.tier)) profile.attuned[nxt] = true;
         persist();
+        this.toast(`${marksOf(this.tier)} ${TIERS[this.tier].name} Marks — buy the set at the vendor`);
       } else this.toast("Room clear — walk through the door");
     }
     if (this.doorOpen && py < 64) {
